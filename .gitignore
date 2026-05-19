@@ -1,0 +1,26 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+
+# 개인메모
+docs/
+
+# Next.js (셋업 후 사용)
+.next/
+out/
+build/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/

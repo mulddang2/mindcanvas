@@ -1,0 +1,14 @@
+{
+  "name": "mindcanvas",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AI 협업 마인드맵 / 플로우 차트 SaaS",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.6.0",
+    "@commitlint/config-conventional": "^19.6.0",
+    "husky": "^9.1.7"
+  }
+}
