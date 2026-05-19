@@ -2,15 +2,17 @@ node_modules/
 .env
 .env.local
 .env.*.local
+!.env.local.example
 
 # 개인메모
 docs/
 
-# Next.js (셋업 후 사용)
+# Next.js
 .next/
 out/
 build/
 dist/
+*.tsbuildinfo
 
 # Logs
 *.log
