@@ -1,0 +1,38 @@
+# <type>(<scope>): <subject>  ← 72자 이내, 한국어 명사형 종결 ("~ 추가")
+#
+# 본문 (선택): 무엇을, 왜 바꿨는지. 한 줄 100자.
+#
+# Closes #N  ← GitHub 자동 연동 (선택)
+#
+# ===========================================================
+# type
+#   feat     새 기능
+#   fix      버그 수정
+#   docs     문서
+#   style    포맷 (코드 동작 변경 없음)
+#   refactor 리팩토링 (기능 변경 없음)
+#   perf     성능 개선
+#   test     테스트
+#   build    빌드 / 의존성
+#   ci       CI 설정
+#   chore    잡일
+#   revert   되돌리기
+#
+# scope
+#   canvas  무한 캔버스 엔진       (M1)
+#   node    노드 시스템             (M2)
+#   edge    엣지 / 연결선           (M2)
+#   layout  D3 force layout         (M4)
+#   store   Zustand                 (M1~)
+#   ai      Gemini                  (M3)
+#   auth    Supabase Auth
+#   collab  Y.js 협업               (M7)
+#   mobile  PWA · 터치              (M9)
+#   embed   임베드 SDK              (M10)
+#   ui      공통 UI                 (M1~)
+#   hooks   커스텀 훅               (M1~)
+#   a11y    접근성                  (M11)
+#   i18n    다국어                  (M11)
+#   perf    성능 측정               (M6)
+#   deps    의존성                  (상시)
+# ===========================================================
