@@ -13,6 +13,7 @@ out/
 build/
 dist/
 *.tsbuildinfo
+next-env.d.ts
 
 # Logs
 *.log
@@ -26,3 +27,4 @@ Thumbs.db
 !.vscode/settings.json
 !.vscode/extensions.json
 .idea/
+.claude/
