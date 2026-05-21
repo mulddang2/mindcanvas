@@ -7,6 +7,7 @@ const DEFAULT_HEIGHT = 64;
 interface NodeStore {
   nodes: CanvasNode[];
   selectedId: string | null;
+  nextNodeNumber: number;
   /** world 좌표를 중심으로 기본 크기 노드를 추가하고 곧바로 선택한다. */
   addNode: (centerX: number, centerY: number) => void;
   removeNode: (id: string) => void;
@@ -18,6 +19,7 @@ interface NodeStore {
 export const useNodeStore = create<NodeStore>((set) => ({
   nodes: [],
   selectedId: null,
+  nextNodeNumber: 1,
   addNode: (centerX, centerY) =>
     set((state) => {
       const node: CanvasNode = {
@@ -26,9 +28,9 @@ export const useNodeStore = create<NodeStore>((set) => ({
         y: centerY - DEFAULT_HEIGHT / 2,
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
-        label: `노드 ${state.nodes.length + 1}`,
+        label: `노드 ${state.nextNodeNumber}`,
       };
-      return { nodes: [...state.nodes, node], selectedId: node.id };
+      return { nodes: [...state.nodes, node], selectedId: node.id, nextNodeNumber: state.nextNodeNumber + 1 };
     }),
   removeNode: (id) =>
     set((state) => ({
