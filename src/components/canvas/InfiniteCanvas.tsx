@@ -59,7 +59,7 @@ export function InfiniteCanvas() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const observer = new ResizeObserver(() => render());
+    const observer = new ResizeObserver(() => setVisibleCount(render()));
     observer.observe(canvas);
     return () => observer.disconnect();
   }, [render]);
