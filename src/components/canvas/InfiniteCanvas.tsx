@@ -25,7 +25,7 @@ export function InfiniteCanvas() {
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
+    if (!canvas || !ctx) return 0;
 
     const dpr = window.devicePixelRatio || 1;
     const width = canvas.clientWidth;
@@ -35,24 +35,25 @@ export function InfiniteCanvas() {
       canvas.height = height * dpr;
     }
 
-    const { viewport } = useCanvasStore.getState();
+    // viewport: useEffect deps용 구독값, currentViewport: 실제 그리기에 쓸 최신값
+    const { viewport: currentViewport } = useCanvasStore.getState();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
-    drawGrid(ctx, viewport, width, height);
+    drawGrid(ctx, currentViewport, width, height);
 
     const { nodes, selectedId } = useNodeStore.getState();
-    const bounds = getVisibleBounds(viewport, width, height);
+    const bounds = getVisibleBounds(currentViewport, width, height);
     let visible = 0;
     for (const node of nodes) {
       if (!isNodeVisible(node, bounds)) continue;
-      drawNode(ctx, node, viewport, node.id === selectedId);
+      drawNode(ctx, node, currentViewport, node.id === selectedId);
       visible += 1;
     }
-    setVisibleCount(visible);
+    return visible;
   }, []);
 
   useEffect(() => {
-    render();
+    setVisibleCount(render());
   }, [viewport, nodes, selectedId, render]);
 
   useEffect(() => {
