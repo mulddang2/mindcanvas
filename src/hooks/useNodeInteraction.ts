@@ -43,9 +43,14 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     let dragStartWorld: Point = { x: 0, y: 0 };
     // 드래그 시작 시점 선택 노드들의 위치 스냅샷 (절대 좌표 재배치용)
     let dragSnapshot: Array<{ id: string; x: number; y: number }> = [];
+    // 포인터가 CLICK_SLOP을 넘겨 실제 이동으로 판정됐는지. false면 pointerup을
+    // 클릭으로 보고 그 노드만 단일 선택한다.
+    let dragMoved = false;
 
     // 영역 선택(러버밴드) 상태
     let rubberStartWorld: Point | null = null;
+    // 러버밴드 시작 시점의 선택. 영역 결과를 여기에 합쳐 누적 선택한다.
+    let rubberBaseSelection: string[] = [];
 
     // pointermove는 프레임보다 잦으므로 store 업데이트를 rAF로 한 프레임당 한 번으로 묶는다.
     let rafId = 0;
@@ -84,8 +89,10 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
           .map((n) => ({ id: n.id, x: n.x, y: n.y }));
         draggingId = hit.id;
         dragStartWorld = world;
+        dragMoved = false;
+        downX = e.clientX;
+        downY = e.clientY;
         el.setPointerCapture(e.pointerId);
-        el.style.cursor = 'move';
         return;
       }
 
@@ -93,6 +100,7 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
         // Shift+빈 공간 드래그: 영역 선택 시작. Pan을 막는다.
         e.stopImmediatePropagation();
         rubberStartWorld = world;
+        rubberBaseSelection = [...store.selectedIds];
         el.setPointerCapture(e.pointerId);
         return;
       }
@@ -117,12 +125,20 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
         const box = boundsFromPoints(rubberStartWorld, pendingWorld);
         const store = useNodeStore.getState();
         store.setSelectionBox(box);
-        store.setSelection(nodesInBounds(store.nodes, box).map((n) => n.id));
+        // 시작 시점 선택에 영역 안 노드를 합친다 (Shift+클릭과 같은 누적 동작).
+        const inBox = nodesInBounds(store.nodes, box).map((n) => n.id);
+        store.setSelection([...rubberBaseSelection, ...inBox]);
       }
     };
 
     const onPointerMove = (e: PointerEvent) => {
       if (!draggingId && !rubberStartWorld) return;
+      if (draggingId && !dragMoved) {
+        // CLICK_SLOP 이내 미세 이동은 아직 클릭으로 본다. 넘어서면 드래그 시작.
+        if (Math.hypot(e.clientX - downX, e.clientY - downY) <= CLICK_SLOP) return;
+        dragMoved = true;
+        el.style.cursor = 'move';
+      }
       pendingWorld = toWorld(e.clientX, e.clientY);
       if (!rafId) rafId = requestAnimationFrame(flushGesture);
     };
@@ -137,7 +153,9 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       pendingWorld = null;
       draggingId = null;
       dragSnapshot = [];
+      dragMoved = false;
       rubberStartWorld = null;
+      rubberBaseSelection = [];
       useNodeStore.getState().setSelectionBox(null);
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
       el.style.cursor = 'grab';
@@ -145,7 +163,10 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
 
     const onPointerUp = (e: PointerEvent) => {
       if (draggingId || rubberStartWorld) {
+        // 이동 없이 끝난 노드 제스처는 클릭 → 그 노드만 단일 선택한다.
+        const clickedId = draggingId && !dragMoved ? draggingId : null;
         finishGesture(e);
+        if (clickedId) useNodeStore.getState().selectOnly(clickedId);
         return;
       }
       // 빈 공간 pointerdown으로 시작한 제스처만 선택 해제 대상이다.
@@ -164,6 +185,18 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // 입력 요소에 포커스가 있으면(향후 라벨 인라인 편집 등) 캔버스 단축키를
+      // 가로채지 않는다 — input 타이핑 중 Backspace·Ctrl+A 오작동 방지.
+      const target = e.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA')
+      ) {
+        return;
+      }
+
       const store = useNodeStore.getState();
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
