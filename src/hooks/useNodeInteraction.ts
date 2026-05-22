@@ -20,6 +20,8 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     let draggingId: string | null = null;
     let dragStartWorld = { x: 0, y: 0 };
     let dragStartNode = { x: 0, y: 0 };
+    let rafId = 0;
+    let pendingWorld: { x: number; y: number } | null = null;
 
     const toWorld = (clientX: number, clientY: number) => {
       const rect = el.getBoundingClientRect();
@@ -49,18 +51,32 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       }
     };
 
+    // pointermove는 프레임보다 잦게 발생하므로, store 업데이트를 rAF로 한 프레임당
+    // 한 번으로 묶어 드래그 중 과도한 리렌더링을 막는다.
+    const flushDrag = () => {
+      rafId = 0;
+      if (!draggingId || !pendingWorld) return;
+      useNodeStore.getState().updateNode(draggingId, {
+        x: dragStartNode.x + (pendingWorld.x - dragStartWorld.x),
+        y: dragStartNode.y + (pendingWorld.y - dragStartWorld.y),
+      });
+    };
+
     const onPointerMove = (e: PointerEvent) => {
       if (!draggingId) return;
-      const world = toWorld(e.clientX, e.clientY);
-      useNodeStore.getState().updateNode(draggingId, {
-        x: dragStartNode.x + (world.x - dragStartWorld.x),
-        y: dragStartNode.y + (world.y - dragStartWorld.y),
-      });
+      pendingWorld = toWorld(e.clientX, e.clientY);
+      if (!rafId) rafId = requestAnimationFrame(flushDrag);
     };
 
     const stopDrag = (e: PointerEvent) => {
       if (!draggingId) return;
+      // 예약된 rAF가 남아 있으면 마지막 위치를 즉시 반영하고 정리한다.
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        flushDrag();
+      }
       draggingId = null;
+      pendingWorld = null;
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
       el.style.cursor = 'grab';
     };
@@ -98,6 +114,7 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
+      if (rafId) cancelAnimationFrame(rafId);
       el.removeEventListener('pointerdown', onPointerDown);
       el.removeEventListener('pointermove', onPointerMove);
       el.removeEventListener('pointerup', onPointerUp);
