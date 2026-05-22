@@ -8,6 +8,8 @@ import { useNodeInteraction } from '@/hooks/useNodeInteraction';
 import { drawGrid } from '@/lib/canvas/grid';
 import { drawNode } from '@/lib/canvas/drawNode';
 import { drawSelectionBox } from '@/lib/canvas/drawSelectionBox';
+import { drawEdge, drawPendingEdge } from '@/lib/canvas/drawEdge';
+import { drawHandles } from '@/lib/canvas/nodeHandles';
 import { getVisibleBounds, isNodeVisible } from '@/lib/canvas/viewport';
 
 export function InfiniteCanvas() {
@@ -15,8 +17,12 @@ export function InfiniteCanvas() {
   const viewport = useCanvasStore((state) => state.viewport);
   const resetViewport = useCanvasStore((state) => state.resetViewport);
   const nodes = useNodeStore((state) => state.nodes);
+  const edges = useNodeStore((state) => state.edges);
   const selectedIds = useNodeStore((state) => state.selectedIds);
+  const selectedEdgeId = useNodeStore((state) => state.selectedEdgeId);
   const selectionBox = useNodeStore((state) => state.selectionBox);
+  const hoveredNodeId = useNodeStore((state) => state.hoveredNodeId);
+  const pendingEdge = useNodeStore((state) => state.pendingEdge);
   const [visibleCount, setVisibleCount] = useState(0);
 
   // 순서 중요: useNodeInteraction이 먼저 등록돼야 노드 위 pointerdown에서
@@ -24,7 +30,7 @@ export function InfiniteCanvas() {
   useNodeInteraction(canvasRef);
   usePanZoom(canvasRef);
 
-  // 항상 store의 최신 상태를 읽어 격자 → 노드 → 선택 박스 순으로 그린다.
+  // 항상 store의 최신 상태를 읽어 격자 → 연결선 → 노드 → 핸들 → 선택 박스 순으로 그린다.
   // devicePixelRatio를 반영해 물리 픽셀로 버퍼를 잡고, 그리기는 CSS 픽셀 좌표계로 한다.
   const render = useCallback(() => {
     const canvas = canvasRef.current;
@@ -45,21 +51,51 @@ export function InfiniteCanvas() {
     ctx.clearRect(0, 0, width, height);
     drawGrid(ctx, currentViewport, width, height);
 
-    const { nodes, selectedIds, selectionBox } = useNodeStore.getState();
+    const state = useNodeStore.getState();
+    const nodeById = new Map(state.nodes.map((node) => [node.id, node]));
+
+    // 연결선은 노드 아래에 깔리도록 먼저 그린다.
+    for (const edge of state.edges) {
+      const source = nodeById.get(edge.source);
+      const target = nodeById.get(edge.target);
+      if (!source || !target) continue;
+      drawEdge(ctx, source, target, currentViewport, edge.id === state.selectedEdgeId);
+    }
+    if (state.pendingEdge) {
+      const source = nodeById.get(state.pendingEdge.sourceId);
+      if (source) drawPendingEdge(ctx, source, state.pendingEdge.cursor, currentViewport);
+    }
+
     const bounds = getVisibleBounds(currentViewport, width, height);
     let visible = 0;
-    for (const node of nodes) {
+    for (const node of state.nodes) {
       if (!isNodeVisible(node, bounds)) continue;
-      drawNode(ctx, node, currentViewport, selectedIds.has(node.id));
+      drawNode(ctx, node, currentViewport, state.selectedIds.has(node.id));
       visible += 1;
     }
-    if (selectionBox) drawSelectionBox(ctx, selectionBox, currentViewport);
+
+    // 핸들은 노드 위에 떠 있어야 잡을 수 있으므로 마지막에 그린다.
+    const hovered = state.hoveredNodeId ? nodeById.get(state.hoveredNodeId) : undefined;
+    if (hovered) drawHandles(ctx, hovered, currentViewport);
+
+    if (state.selectionBox) drawSelectionBox(ctx, state.selectionBox, currentViewport);
+
     return visible;
   }, []);
 
   useEffect(() => {
     setVisibleCount(render());
-  }, [viewport, nodes, selectedIds, selectionBox, render]);
+  }, [
+    viewport,
+    nodes,
+    edges,
+    selectedIds,
+    selectedEdgeId,
+    selectionBox,
+    hoveredNodeId,
+    pendingEdge,
+    render,
+  ]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -80,11 +116,12 @@ export function InfiniteCanvas() {
         <div>
           nodes {visibleCount}/{nodes.length}
         </div>
+        <div>edges {edges.length}</div>
         <div>selected {selectedIds.size}</div>
       </div>
 
       <div className="pointer-events-none absolute bottom-3 left-3 select-none rounded-md bg-black/75 px-3 py-2 text-xs text-white">
-        더블클릭 추가 · 클릭/Shift+클릭 선택 · Shift+드래그 영역 · Ctrl+A 전체 · Esc 해제 · Delete 삭제
+        더블클릭 추가 · 클릭/Shift+클릭 선택 · Shift+드래그 영역 · 핸들 드래그 연결 · Ctrl+A 전체 · Esc 해제 · Delete 삭제
       </div>
 
       <button

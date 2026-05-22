@@ -1,17 +1,28 @@
 import { create } from 'zustand';
-import type { CanvasNode, WorldBounds } from '@/types/canvas';
+import type { CanvasEdge, CanvasNode, Point, WorldBounds } from '@/types/canvas';
 
 const DEFAULT_WIDTH = 160;
 const DEFAULT_HEIGHT = 64;
 
+/** 핸들 드래그 중인 임시 연결선. source 노드에서 cursor world 좌표까지 그린다. */
+export interface PendingEdge {
+  sourceId: string;
+  cursor: Point;
+}
+
 interface NodeStore {
   nodes: CanvasNode[];
+  edges: CanvasEdge[];
   selectedIds: Set<string>;
+  selectedEdgeId: string | null;
   /** Shift+드래그 중인 영역 선택 박스. 드래그가 끝나면 null. */
   selectionBox: WorldBounds | null;
+  /** 핸들이 노출될 호버 중인 노드. 없으면 null. */
+  hoveredNodeId: string | null;
+  pendingEdge: PendingEdge | null;
   nextNodeNumber: number;
-  /** world 좌표를 중심으로 기본 크기 노드를 추가하고 그 노드만 선택한다. */
-  addNode: (centerX: number, centerY: number) => void;
+  /** world 좌표를 중심으로 기본 크기 노드를 추가하고 그 노드만 선택한 뒤 id를 돌려준다. */
+  addNode: (centerX: number, centerY: number) => string;
   removeNode: (id: string) => void;
   updateNode: (id: string, patch: Partial<Omit<CanvasNode, 'id'>>) => void;
   /** 여러 노드 위치를 한 번에 절대 좌표로 옮긴다 (다중 드래그용). */
@@ -25,18 +36,29 @@ interface NodeStore {
   /** 모든 노드를 선택한다 (Ctrl/Cmd+A). */
   selectAll: () => void;
   setSelectionBox: (box: WorldBounds | null) => void;
+  /** 두 노드를 잇는 연결선을 추가한다. 자기 연결·중복(방향 무관)은 무시한다. */
+  addEdge: (source: string, target: string) => void;
+  selectEdge: (id: string | null) => void;
+  setHoveredNode: (id: string | null) => void;
+  setPendingEdge: (edge: PendingEdge | null) => void;
+  /** 선택된 연결선이 있으면 그것을, 없으면 선택된 노드 전체를 삭제한다. */
   removeSelected: () => void;
 }
 
 export const useNodeStore = create<NodeStore>((set) => ({
   nodes: [],
+  edges: [],
   selectedIds: new Set(),
+  selectedEdgeId: null,
   selectionBox: null,
+  hoveredNodeId: null,
+  pendingEdge: null,
   nextNodeNumber: 1,
-  addNode: (centerX, centerY) =>
+  addNode: (centerX, centerY) => {
+    const id = crypto.randomUUID();
     set((state) => {
       const node: CanvasNode = {
-        id: crypto.randomUUID(),
+        id,
         x: centerX - DEFAULT_WIDTH / 2,
         y: centerY - DEFAULT_HEIGHT / 2,
         width: DEFAULT_WIDTH,
@@ -45,10 +67,13 @@ export const useNodeStore = create<NodeStore>((set) => ({
       };
       return {
         nodes: [...state.nodes, node],
-        selectedIds: new Set([node.id]),
+        selectedIds: new Set([id]),
+        selectedEdgeId: null,
         nextNodeNumber: state.nextNodeNumber + 1,
       };
-    }),
+    });
+    return id;
+  },
   removeNode: (id) =>
     set((state) => {
       const nodes = state.nodes.filter((node) => node.id !== id);
@@ -56,6 +81,7 @@ export const useNodeStore = create<NodeStore>((set) => ({
       selectedIds.delete(id);
       return {
         nodes,
+        edges: state.edges.filter((edge) => edge.source !== id && edge.target !== id),
         selectedIds,
         nextNodeNumber: nodes.length === 0 ? 1 : state.nextNodeNumber,
       };
@@ -74,23 +100,53 @@ export const useNodeStore = create<NodeStore>((set) => ({
         }),
       };
     }),
-  selectOnly: (id) => set({ selectedIds: id ? new Set([id]) : new Set() }),
+  selectOnly: (id) =>
+    set({ selectedIds: id ? new Set([id]) : new Set(), selectedEdgeId: null }),
   toggleSelect: (id) =>
     set((state) => {
       const selectedIds = new Set(state.selectedIds);
       if (selectedIds.has(id)) selectedIds.delete(id);
       else selectedIds.add(id);
-      return { selectedIds };
+      return { selectedIds, selectedEdgeId: null };
     }),
-  setSelection: (ids) => set({ selectedIds: new Set(ids) }),
-  selectAll: () => set((state) => ({ selectedIds: new Set(state.nodes.map((node) => node.id)) })),
+  setSelection: (ids) => set({ selectedIds: new Set(ids), selectedEdgeId: null }),
+  selectAll: () =>
+    set((state) => ({
+      selectedIds: new Set(state.nodes.map((node) => node.id)),
+      selectedEdgeId: null,
+    })),
   setSelectionBox: (box) => set({ selectionBox: box }),
+  addEdge: (source, target) =>
+    set((state) => {
+      if (source === target) return state;
+      const exists = state.edges.some(
+        (edge) =>
+          (edge.source === source && edge.target === target) ||
+          (edge.source === target && edge.target === source),
+      );
+      if (exists) return state;
+      return {
+        edges: [...state.edges, { id: crypto.randomUUID(), source, target }],
+      };
+    }),
+  selectEdge: (id) => set({ selectedEdgeId: id, selectedIds: new Set() }),
+  setHoveredNode: (id) => set({ hoveredNodeId: id }),
+  setPendingEdge: (edge) => set({ pendingEdge: edge }),
   removeSelected: () =>
     set((state) => {
+      if (state.selectedEdgeId) {
+        return {
+          edges: state.edges.filter((edge) => edge.id !== state.selectedEdgeId),
+          selectedEdgeId: null,
+        };
+      }
       if (state.selectedIds.size === 0) return state;
       const nodes = state.nodes.filter((node) => !state.selectedIds.has(node.id));
       return {
         nodes,
+        edges: state.edges.filter(
+          (edge) => !state.selectedIds.has(edge.source) && !state.selectedIds.has(edge.target),
+        ),
         selectedIds: new Set(),
         nextNodeNumber: nodes.length === 0 ? 1 : state.nextNodeNumber,
       };

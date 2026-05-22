@@ -4,7 +4,13 @@ import { useEffect, type RefObject } from 'react';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useNodeStore } from '@/stores/nodeStore';
 import { screenToWorld } from '@/lib/canvas/transform';
-import { hitTestNode, nodesInBounds } from '@/lib/canvas/hitTest';
+import {
+  hitTestEdge,
+  hitTestHandle,
+  hitTestNode,
+  nodesInBounds,
+  resolveHover,
+} from '@/lib/canvas/hitTest';
 import type { Point, WorldBounds } from '@/types/canvas';
 
 // 이 픽셀 이내의 포인터 이동은 Pan 드래그가 아니라 클릭(선택)으로 본다.
@@ -21,10 +27,12 @@ function boundsFromPoints(a: Point, b: Point): WorldBounds {
 }
 
 /**
- * 캔버스에 노드 인터랙션을 붙인다.
+ * 캔버스에 노드·연결선 인터랙션을 붙인다.
  * - 더블클릭: 노드 추가 / 클릭: 단일 선택 / Shift+클릭: 선택 토글
  * - 노드 드래그: 선택된 노드 전체 이동 / Shift+빈 공간 드래그: 영역 선택
- * - Delete: 선택 노드 삭제 / Ctrl·Cmd+A: 전체 선택 / Esc: 선택 해제
+ * - 호버 시 노드 핸들 노출, 핸들 드래그: 연결선 생성
+ *   (다른 노드에 놓으면 연결, 빈 공간에 놓으면 자식 노드 생성 + 연결)
+ * - Delete: 선택 노드·연결선 삭제 / Ctrl·Cmd+A: 전체 선택 / Esc: 선택 해제
  */
 export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): void {
   useEffect(() => {
@@ -52,6 +60,9 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     // 러버밴드 시작 시점의 선택. 영역 결과를 여기에 합쳐 누적 선택한다.
     let rubberBaseSelection: string[] = [];
 
+    // 핸들에서 시작한 연결선 드래그의 source 노드 id
+    let edgeDragSourceId: string | null = null;
+
     // pointermove는 프레임보다 잦으므로 store 업데이트를 rAF로 한 프레임당 한 번으로 묶는다.
     let rafId = 0;
     let pendingWorld: Point | null = null;
@@ -68,11 +79,25 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     const onPointerDown = (e: PointerEvent) => {
       const world = toWorld(e.clientX, e.clientY);
       const store = useNodeStore.getState();
-      const hit = hitTestNode(store.nodes, world);
+      const scale = useCanvasStore.getState().viewport.scale;
       emptyPointerDown = false;
 
+      // 1. 호버 노드 핸들 위 → 연결선 드래그 시작.
+      const hoverNode = store.hoveredNodeId
+        ? store.nodes.find((node) => node.id === store.hoveredNodeId)
+        : null;
+      if (hoverNode && hitTestHandle(hoverNode, world, scale)) {
+        e.stopImmediatePropagation();
+        edgeDragSourceId = hoverNode.id;
+        store.setPendingEdge({ sourceId: hoverNode.id, cursor: world });
+        el.setPointerCapture(e.pointerId);
+        el.style.cursor = 'crosshair';
+        return;
+      }
+
+      // 2. 노드 위 → 다중 선택·이동 처리. Pan이 시작되지 않도록 이후 리스너를 막는다.
+      const hit = hitTestNode(store.nodes, world);
       if (hit) {
-        // 노드 위 pointerdown: Pan이 시작되지 않도록 이후 리스너를 막는다.
         e.stopImmediatePropagation();
 
         if (e.shiftKey) {
@@ -96,8 +121,8 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
         return;
       }
 
+      // 3. Shift+빈 공간 드래그 → 영역 선택. Pan을 막는다.
       if (e.shiftKey) {
-        // Shift+빈 공간 드래그: 영역 선택 시작. Pan을 막는다.
         e.stopImmediatePropagation();
         rubberStartWorld = world;
         rubberBaseSelection = [...store.selectedIds];
@@ -105,7 +130,7 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
         return;
       }
 
-      // 빈 공간 일반 드래그는 Pan(usePanZoom)에 맡기고, 클릭 여부 판별용 좌표만 기록한다.
+      // 4. 빈 공간 일반 드래그는 Pan(usePanZoom)에 맡기고, 클릭 여부 판별용 좌표만 기록한다.
       emptyPointerDown = true;
       downX = e.clientX;
       downY = e.clientY;
@@ -114,33 +139,46 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     const flushGesture = () => {
       rafId = 0;
       if (!pendingWorld) return;
+      const store = useNodeStore.getState();
 
       if (draggingId) {
         const dx = pendingWorld.x - dragStartWorld.x;
         const dy = pendingWorld.y - dragStartWorld.y;
-        useNodeStore
-          .getState()
-          .moveNodes(dragSnapshot.map((s) => ({ id: s.id, x: s.x + dx, y: s.y + dy })));
+        store.moveNodes(dragSnapshot.map((s) => ({ id: s.id, x: s.x + dx, y: s.y + dy })));
       } else if (rubberStartWorld) {
         const box = boundsFromPoints(rubberStartWorld, pendingWorld);
-        const store = useNodeStore.getState();
         store.setSelectionBox(box);
         // 시작 시점 선택에 영역 안 노드를 합친다 (Shift+클릭과 같은 누적 동작).
         const inBox = nodesInBounds(store.nodes, box).map((n) => n.id);
         store.setSelection([...rubberBaseSelection, ...inBox]);
+      } else if (edgeDragSourceId) {
+        store.setPendingEdge({ sourceId: edgeDragSourceId, cursor: pendingWorld });
       }
     };
 
     const onPointerMove = (e: PointerEvent) => {
-      if (!draggingId && !rubberStartWorld) return;
-      if (draggingId && !dragMoved) {
-        // CLICK_SLOP 이내 미세 이동은 아직 클릭으로 본다. 넘어서면 드래그 시작.
-        if (Math.hypot(e.clientX - downX, e.clientY - downY) <= CLICK_SLOP) return;
-        dragMoved = true;
-        el.style.cursor = 'move';
+      // 활성 제스처(노드 이동·러버밴드·엣지 생성) 처리.
+      if (draggingId || rubberStartWorld || edgeDragSourceId) {
+        if (draggingId && !dragMoved) {
+          // CLICK_SLOP 이내 미세 이동은 아직 클릭으로 본다. 넘어서면 드래그 시작.
+          if (Math.hypot(e.clientX - downX, e.clientY - downY) <= CLICK_SLOP) return;
+          dragMoved = true;
+          el.style.cursor = 'move';
+        }
+        pendingWorld = toWorld(e.clientX, e.clientY);
+        if (!rafId) rafId = requestAnimationFrame(flushGesture);
+        return;
       }
-      pendingWorld = toWorld(e.clientX, e.clientY);
-      if (!rafId) rafId = requestAnimationFrame(flushGesture);
+      // 호버: 핸들을 노출할 노드를 갱신하고, 핸들 위에서는 커서를 바꾼다.
+      const store = useNodeStore.getState();
+      const world = toWorld(e.clientX, e.clientY);
+      const scale = useCanvasStore.getState().viewport.scale;
+      const hovered = resolveHover(store.nodes, store.hoveredNodeId, world, scale);
+      if (hovered !== store.hoveredNodeId) store.setHoveredNode(hovered);
+      // 버튼이 눌린 상태(Pan 중)면 커서는 usePanZoom이 관리하므로 건드리지 않는다.
+      if (e.buttons !== 0) return;
+      const hoverNode = hovered ? store.nodes.find((node) => node.id === hovered) : null;
+      el.style.cursor = hoverNode && hitTestHandle(hoverNode, world, scale) ? 'crosshair' : 'grab';
     };
 
     const finishGesture = (e: PointerEvent) => {
@@ -161,7 +199,37 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       el.style.cursor = 'grab';
     };
 
+    const finishEdgeDrag = (e: PointerEvent, commit: boolean) => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
+      pendingWorld = null;
+      const source = edgeDragSourceId;
+      edgeDragSourceId = null;
+      const store = useNodeStore.getState();
+      store.setPendingEdge(null);
+      if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+      el.style.cursor = 'grab';
+      if (!source || !commit) return;
+
+      const world = toWorld(e.clientX, e.clientY);
+      const target = hitTestNode(store.nodes, world);
+      if (target) {
+        // 같은 노드 위에 놓으면 addEdge가 자기 연결을 무시한다.
+        store.addEdge(source, target.id);
+      } else {
+        // 빈 공간에 놓으면 자식 노드를 만들고 연결한다 (Whimsical·tldraw 패턴).
+        const id = store.addNode(world.x, world.y);
+        store.addEdge(source, id);
+      }
+    };
+
     const onPointerUp = (e: PointerEvent) => {
+      if (edgeDragSourceId) {
+        finishEdgeDrag(e, true);
+        return;
+      }
       if (draggingId || rubberStartWorld) {
         // 이동 없이 끝난 노드 제스처는 클릭 → 그 노드만 단일 선택한다.
         const clickedId = draggingId && !dragMoved ? draggingId : null;
@@ -169,12 +237,31 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
         if (clickedId) useNodeStore.getState().selectOnly(clickedId);
         return;
       }
-      // 빈 공간 pointerdown으로 시작한 제스처만 선택 해제 대상이다.
+      // 빈 공간 pointerdown으로 시작한 제스처만 엣지 선택·전체 해제 대상이다.
       if (!emptyPointerDown) return;
       emptyPointerDown = false;
-      // 빈 공간 클릭(Pan 아님) → 선택 해제
       if (Math.hypot(e.clientX - downX, e.clientY - downY) > CLICK_SLOP) return;
-      useNodeStore.getState().selectOnly(null);
+      const store = useNodeStore.getState();
+      const world = toWorld(e.clientX, e.clientY);
+      const scale = useCanvasStore.getState().viewport.scale;
+      const edge = hitTestEdge(store.edges, store.nodes, world, scale);
+      if (edge) {
+        store.selectEdge(edge.id);
+        return;
+      }
+      store.selectOnly(null);
+    };
+
+    const onPointerCancel = (e: PointerEvent) => {
+      if (edgeDragSourceId) {
+        finishEdgeDrag(e, false);
+        return;
+      }
+      finishGesture(e);
+    };
+
+    const onPointerLeave = () => {
+      if (useNodeStore.getState().hoveredNodeId) useNodeStore.getState().setHoveredNode(null);
     };
 
     const onDoubleClick = (e: MouseEvent) => {
@@ -200,7 +287,7 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       const store = useNodeStore.getState();
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (store.selectedIds.size === 0) return;
+        if (store.selectedIds.size === 0 && !store.selectedEdgeId) return;
         e.preventDefault();
         store.removeSelected();
         return;
@@ -215,7 +302,7 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       }
 
       // Escape: 선택 해제
-      if (e.key === 'Escape' && store.selectedIds.size > 0) {
+      if (e.key === 'Escape' && (store.selectedIds.size > 0 || store.selectedEdgeId)) {
         store.selectOnly(null);
       }
     };
@@ -223,7 +310,8 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     el.addEventListener('pointerdown', onPointerDown);
     el.addEventListener('pointermove', onPointerMove);
     el.addEventListener('pointerup', onPointerUp);
-    el.addEventListener('pointercancel', finishGesture);
+    el.addEventListener('pointercancel', onPointerCancel);
+    el.addEventListener('pointerleave', onPointerLeave);
     el.addEventListener('dblclick', onDoubleClick);
     window.addEventListener('keydown', onKeyDown);
 
@@ -232,7 +320,8 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       el.removeEventListener('pointerdown', onPointerDown);
       el.removeEventListener('pointermove', onPointerMove);
       el.removeEventListener('pointerup', onPointerUp);
-      el.removeEventListener('pointercancel', finishGesture);
+      el.removeEventListener('pointercancel', onPointerCancel);
+      el.removeEventListener('pointerleave', onPointerLeave);
       el.removeEventListener('dblclick', onDoubleClick);
       window.removeEventListener('keydown', onKeyDown);
     };
