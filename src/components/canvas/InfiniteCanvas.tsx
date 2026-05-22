@@ -17,8 +17,10 @@ export function InfiniteCanvas() {
   const selectedId = useNodeStore((state) => state.selectedId);
   const [visibleCount, setVisibleCount] = useState(0);
 
-  usePanZoom(canvasRef);
+  // 순서 중요: useNodeInteraction이 먼저 등록돼야 노드 위 pointerdown에서
+  // stopImmediatePropagation()으로 usePanZoom의 Pan 시작을 막을 수 있다.
   useNodeInteraction(canvasRef);
+  usePanZoom(canvasRef);
 
   // 항상 store의 최신 상태를 읽어 격자 → 노드 순으로 그린다. devicePixelRatio를
   // 반영해 물리 픽셀로 버퍼를 잡고, 그리기는 CSS 픽셀 좌표계로 한다.
