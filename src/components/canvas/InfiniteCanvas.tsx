@@ -84,7 +84,7 @@ export function InfiniteCanvas() {
       </div>
 
       <div className="pointer-events-none absolute bottom-3 left-3 select-none rounded-md bg-black/75 px-3 py-2 text-xs text-white">
-        더블클릭 추가 · 클릭/Shift+클릭 선택 · Shift+드래그 영역 선택 · Delete 삭제
+        더블클릭 추가 · 클릭/Shift+클릭 선택 · Shift+드래그 영역 · Ctrl+A 전체 · Esc 해제 · Delete 삭제
       </div>
 
       <button

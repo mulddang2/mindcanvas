@@ -24,15 +24,19 @@ function boundsFromPoints(a: Point, b: Point): WorldBounds {
  * 캔버스에 노드 인터랙션을 붙인다.
  * - 더블클릭: 노드 추가 / 클릭: 단일 선택 / Shift+클릭: 선택 토글
  * - 노드 드래그: 선택된 노드 전체 이동 / Shift+빈 공간 드래그: 영역 선택
- * - Delete: 선택 노드 삭제
+ * - Delete: 선택 노드 삭제 / Ctrl·Cmd+A: 전체 선택 / Esc: 선택 해제
  */
 export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): void {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
+    // 빈 공간 pointerdown 위치. Pan과 클릭(선택 해제)을 구분하는 데 쓴다.
     let downX = 0;
     let downY = 0;
+    // 이번 제스처가 빈 공간 pointerdown으로 시작됐는지. false면 pointerup의
+    // 선택 해제 로직을 건너뛴다 (Shift+클릭 등이 잘못 해제되는 것을 막는다).
+    let emptyPointerDown = false;
 
     // 노드 드래그 상태
     let draggingId: string | null = null;
@@ -60,6 +64,7 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       const world = toWorld(e.clientX, e.clientY);
       const store = useNodeStore.getState();
       const hit = hitTestNode(store.nodes, world);
+      emptyPointerDown = false;
 
       if (hit) {
         // 노드 위 pointerdown: Pan이 시작되지 않도록 이후 리스너를 막는다.
@@ -93,6 +98,7 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       }
 
       // 빈 공간 일반 드래그는 Pan(usePanZoom)에 맡기고, 클릭 여부 판별용 좌표만 기록한다.
+      emptyPointerDown = true;
       downX = e.clientX;
       downY = e.clientY;
     };
@@ -142,6 +148,9 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
         finishGesture(e);
         return;
       }
+      // 빈 공간 pointerdown으로 시작한 제스처만 선택 해제 대상이다.
+      if (!emptyPointerDown) return;
+      emptyPointerDown = false;
       // 빈 공간 클릭(Pan 아님) → 선택 해제
       if (Math.hypot(e.clientX - downX, e.clientY - downY) > CLICK_SLOP) return;
       useNodeStore.getState().selectOnly(null);
@@ -155,10 +164,27 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
-      if (useNodeStore.getState().selectedIds.size === 0) return;
-      e.preventDefault();
-      useNodeStore.getState().removeSelected();
+      const store = useNodeStore.getState();
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (store.selectedIds.size === 0) return;
+        e.preventDefault();
+        store.removeSelected();
+        return;
+      }
+
+      // Ctrl/Cmd+A: 전체 선택
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'a' || e.key === 'A')) {
+        if (store.nodes.length === 0) return;
+        e.preventDefault();
+        store.selectAll();
+        return;
+      }
+
+      // Escape: 선택 해제
+      if (e.key === 'Escape' && store.selectedIds.size > 0) {
+        store.selectOnly(null);
+      }
     };
 
     el.addEventListener('pointerdown', onPointerDown);

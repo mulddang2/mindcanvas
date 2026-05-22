@@ -22,6 +22,8 @@ interface NodeStore {
   toggleSelect: (id: string) => void;
   /** 선택을 주어진 id 목록으로 교체한다 (영역 선택). */
   setSelection: (ids: string[]) => void;
+  /** 모든 노드를 선택한다 (Ctrl/Cmd+A). */
+  selectAll: () => void;
   setSelectionBox: (box: WorldBounds | null) => void;
   removeSelected: () => void;
 }
@@ -81,6 +83,7 @@ export const useNodeStore = create<NodeStore>((set) => ({
       return { selectedIds };
     }),
   setSelection: (ids) => set({ selectedIds: new Set(ids) }),
+  selectAll: () => set((state) => ({ selectedIds: new Set(state.nodes.map((node) => node.id)) })),
   setSelectionBox: (box) => set({ selectionBox: box }),
   removeSelected: () =>
     set((state) => {
