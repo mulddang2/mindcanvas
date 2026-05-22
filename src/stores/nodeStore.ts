@@ -33,20 +33,28 @@ export const useNodeStore = create<NodeStore>((set) => ({
       return { nodes: [...state.nodes, node], selectedId: node.id, nextNodeNumber: state.nextNodeNumber + 1 };
     }),
   removeNode: (id) =>
-    set((state) => ({
-      nodes: state.nodes.filter((node) => node.id !== id),
-      selectedId: state.selectedId === id ? null : state.selectedId,
-    })),
+    set((state) => {
+      const nodes = state.nodes.filter((node) => node.id !== id);
+      return {
+        nodes,
+        selectedId: state.selectedId === id ? null : state.selectedId,
+        nextNodeNumber: nodes.length === 0 ? 1 : state.nextNodeNumber,
+      };
+    }),
   updateNode: (id, patch) =>
     set((state) => ({
       nodes: state.nodes.map((node) => (node.id === id ? { ...node, ...patch } : node)),
     })),
   selectNode: (id) => set({ selectedId: id }),
   removeSelected: () =>
-    set((state) => ({
-      nodes: state.selectedId
+    set((state) => {
+      const nodes = state.selectedId
         ? state.nodes.filter((node) => node.id !== state.selectedId)
-        : state.nodes,
-      selectedId: null,
-    })),
+        : state.nodes;
+      return {
+        nodes,
+        selectedId: null,
+        nextNodeNumber: nodes.length === 0 ? 1 : state.nextNodeNumber,
+      };
+    }),
 }));
