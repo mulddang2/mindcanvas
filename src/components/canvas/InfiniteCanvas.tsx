@@ -7,6 +7,7 @@ import { usePanZoom } from '@/hooks/usePanZoom';
 import { useNodeInteraction } from '@/hooks/useNodeInteraction';
 import { drawGrid } from '@/lib/canvas/grid';
 import { drawNode } from '@/lib/canvas/drawNode';
+import { drawSelectionBox } from '@/lib/canvas/drawSelectionBox';
 import { getVisibleBounds, isNodeVisible } from '@/lib/canvas/viewport';
 
 export function InfiniteCanvas() {
@@ -14,7 +15,8 @@ export function InfiniteCanvas() {
   const viewport = useCanvasStore((state) => state.viewport);
   const resetViewport = useCanvasStore((state) => state.resetViewport);
   const nodes = useNodeStore((state) => state.nodes);
-  const selectedId = useNodeStore((state) => state.selectedId);
+  const selectedIds = useNodeStore((state) => state.selectedIds);
+  const selectionBox = useNodeStore((state) => state.selectionBox);
   const [visibleCount, setVisibleCount] = useState(0);
 
   // 순서 중요: useNodeInteraction이 먼저 등록돼야 노드 위 pointerdown에서
@@ -22,8 +24,8 @@ export function InfiniteCanvas() {
   useNodeInteraction(canvasRef);
   usePanZoom(canvasRef);
 
-  // 항상 store의 최신 상태를 읽어 격자 → 노드 순으로 그린다. devicePixelRatio를
-  // 반영해 물리 픽셀로 버퍼를 잡고, 그리기는 CSS 픽셀 좌표계로 한다.
+  // 항상 store의 최신 상태를 읽어 격자 → 노드 → 선택 박스 순으로 그린다.
+  // devicePixelRatio를 반영해 물리 픽셀로 버퍼를 잡고, 그리기는 CSS 픽셀 좌표계로 한다.
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
@@ -43,20 +45,21 @@ export function InfiniteCanvas() {
     ctx.clearRect(0, 0, width, height);
     drawGrid(ctx, currentViewport, width, height);
 
-    const { nodes, selectedId } = useNodeStore.getState();
+    const { nodes, selectedIds, selectionBox } = useNodeStore.getState();
     const bounds = getVisibleBounds(currentViewport, width, height);
     let visible = 0;
     for (const node of nodes) {
       if (!isNodeVisible(node, bounds)) continue;
-      drawNode(ctx, node, currentViewport, node.id === selectedId);
+      drawNode(ctx, node, currentViewport, selectedIds.has(node.id));
       visible += 1;
     }
+    if (selectionBox) drawSelectionBox(ctx, selectionBox, currentViewport);
     return visible;
   }, []);
 
   useEffect(() => {
     setVisibleCount(render());
-  }, [viewport, nodes, selectedId, render]);
+  }, [viewport, nodes, selectedIds, selectionBox, render]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -77,10 +80,11 @@ export function InfiniteCanvas() {
         <div>
           nodes {visibleCount}/{nodes.length}
         </div>
+        <div>selected {selectedIds.size}</div>
       </div>
 
       <div className="pointer-events-none absolute bottom-3 left-3 select-none rounded-md bg-black/75 px-3 py-2 text-xs text-white">
-        더블클릭 노드 추가 · 클릭 선택 · Delete 삭제
+        더블클릭 추가 · 클릭/Shift+클릭 선택 · Shift+드래그 영역 · Ctrl+A 전체 · Esc 해제 · Delete 삭제
       </div>
 
       <button
