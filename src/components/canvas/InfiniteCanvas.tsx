@@ -11,6 +11,7 @@ import { drawSelectionBox } from '@/lib/canvas/drawSelectionBox';
 import { drawEdge, drawPendingEdge } from '@/lib/canvas/drawEdge';
 import { drawHandles } from '@/lib/canvas/nodeHandles';
 import { getVisibleBounds, isNodeVisible } from '@/lib/canvas/viewport';
+import { NodeLabelEditor } from './NodeLabelEditor';
 
 export function InfiniteCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -23,6 +24,7 @@ export function InfiniteCanvas() {
   const selectionBox = useNodeStore((state) => state.selectionBox);
   const hoveredNodeId = useNodeStore((state) => state.hoveredNodeId);
   const pendingEdge = useNodeStore((state) => state.pendingEdge);
+  const editingId = useNodeStore((state) => state.editingId);
   const [visibleCount, setVisibleCount] = useState(0);
 
   // 순서 중요: useNodeInteraction이 먼저 등록돼야 노드 위 pointerdown에서
@@ -70,7 +72,13 @@ export function InfiniteCanvas() {
     let visible = 0;
     for (const node of state.nodes) {
       if (!isNodeVisible(node, bounds)) continue;
-      drawNode(ctx, node, currentViewport, state.selectedIds.has(node.id));
+      drawNode(
+        ctx,
+        node,
+        currentViewport,
+        state.selectedIds.has(node.id),
+        node.id === state.editingId,
+      );
       visible += 1;
     }
 
@@ -94,6 +102,7 @@ export function InfiniteCanvas() {
     selectionBox,
     hoveredNodeId,
     pendingEdge,
+    editingId,
     render,
   ]);
 
@@ -121,8 +130,10 @@ export function InfiniteCanvas() {
       </div>
 
       <div className="pointer-events-none absolute bottom-3 left-3 select-none rounded-md bg-black/75 px-3 py-2 text-xs text-white">
-        더블클릭 추가 · 클릭/Shift+클릭 선택 · Shift+드래그 영역 · 핸들 드래그 연결 · Ctrl+A 전체 · Esc 해제 · Delete 삭제
+        더블클릭 추가/편집 · 클릭/Shift+클릭 선택 · Shift+드래그 영역 · 핸들 드래그 연결 · Ctrl+A 전체 · Esc 해제 · Delete 삭제
       </div>
+
+      <NodeLabelEditor />
 
       <button
         type="button"

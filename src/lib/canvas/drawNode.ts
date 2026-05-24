@@ -15,6 +15,7 @@ export function drawNode(
   node: CanvasNode,
   viewport: Viewport,
   selected: boolean,
+  editing: boolean = false,
 ): void {
   const { scale } = viewport;
   const { x, y } = worldToScreen(viewport, node.x, node.y);
@@ -29,6 +30,9 @@ export function drawNode(
   ctx.lineWidth = selected ? 2 : 1;
   ctx.strokeStyle = selected ? BORDER_SELECTED : BORDER;
   ctx.stroke();
+
+  // 편집 중인 노드는 input 오버레이가 라벨을 대체하므로 캔버스에서 라벨을 그리지 않는다.
+  if (editing) return;
 
   // 너무 작게 줌아웃되면 글자가 뭉개지므로 라벨은 생략한다.
   const fontSize = LABEL_FONT_SIZE * scale;

@@ -266,9 +266,14 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
 
     const onDoubleClick = (e: MouseEvent) => {
       const world = toWorld(e.clientX, e.clientY);
-      // 기존 노드 위에서의 더블클릭은 노드가 겹치지 않도록 무시한다.
-      if (hitTestNode(useNodeStore.getState().nodes, world)) return;
-      useNodeStore.getState().addNode(world.x, world.y);
+      const store = useNodeStore.getState();
+      const hit = hitTestNode(store.nodes, world);
+      // 노드 위 더블클릭 → 라벨 인라인 편집 진입. 빈 공간이면 새 노드 추가.
+      if (hit) {
+        store.beginEdit(hit.id);
+        return;
+      }
+      store.addNode(world.x, world.y);
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
