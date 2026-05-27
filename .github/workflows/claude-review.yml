@@ -2,7 +2,9 @@ name: Claude Code Review
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    # synchronize 제외 — 매 push마다 재리뷰 시 누적 노이즈 + 답변 부담만 늘어 가치 작음.
+    # 재리뷰가 필요하면 PR 댓글에 `@claude` 멘션해서 수동 트리거 (trigger_phrase 활용).
+    types: [opened, reopened]
 
 concurrency:
   group: claude-review-${{ github.event.pull_request.number }}
@@ -24,6 +26,8 @@ jobs:
       - uses: anthropics/claude-code-action@beta
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 같은 PR 재리뷰 시 새 코멘트 만들지 않고 기존 코멘트를 update (수동 @claude 트리거용 보험).
+          use_sticky_comment: true
           direct_prompt: |
             이 PR을 리뷰합니다.
 
