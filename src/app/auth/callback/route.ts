@@ -8,9 +8,9 @@ import { createClient } from '@/lib/supabase/server';
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
-  const rawNext = url.searchParams.get('next') ?? '/canvas/demo';
+  const rawNext = url.searchParams.get('next') ?? '/dashboard';
   // Open Redirect 방지: 같은 origin의 상대 경로만 허용. protocol-relative(//) 우회 차단.
-  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/canvas/demo';
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/dashboard';
 
   if (!code) {
     return NextResponse.redirect(new URL('/login?error=missing_code', request.url));
