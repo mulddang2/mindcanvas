@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 /** 보호 경로 prefix. 미로그인 시 /login으로 리다이렉트한다. 로그인·콜백 경로는 제외. */
-const PROTECTED_PREFIXES = ['/canvas'];
+const PROTECTED_PREFIXES = ['/canvas', '/dashboard'];
 
 /** 매 요청마다 세션 쿠키를 갱신하고, 보호 경로는 미로그인 시 /login으로 보낸다. */
 export async function updateSession(request: NextRequest) {
@@ -42,10 +42,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 이미 로그인한 사용자가 /login에 접근하면 캔버스로 보낸다.
+  // 이미 로그인한 사용자가 /login에 접근하면 대시보드로 보낸다.
   if (pathname === '/login' && user) {
     const url = request.nextUrl.clone();
-    url.pathname = '/canvas/demo';
+    url.pathname = '/dashboard';
     url.search = '';
     return NextResponse.redirect(url);
   }
