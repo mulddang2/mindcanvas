@@ -11,6 +11,7 @@ import { drawSelectionBox } from '@/lib/canvas/drawSelectionBox';
 import { drawEdge, drawPendingEdge } from '@/lib/canvas/drawEdge';
 import { drawHandles } from '@/lib/canvas/nodeHandles';
 import { getVisibleBounds, isNodeVisible } from '@/lib/canvas/viewport';
+import { SPAWN_DURATION_MS, spawnProgress } from '@/lib/canvas/animation';
 import { NodeLabelEditor } from './NodeLabelEditor';
 
 export function InfiniteCanvas() {
@@ -25,6 +26,7 @@ export function InfiniteCanvas() {
   const hoveredNodeId = useNodeStore((state) => state.hoveredNodeId);
   const pendingEdge = useNodeStore((state) => state.pendingEdge);
   const editingId = useNodeStore((state) => state.editingId);
+  const lastReplacedAt = useNodeStore((state) => state.lastReplacedAt);
   const [visibleCount, setVisibleCount] = useState(0);
 
   // 순서 중요: useNodeInteraction이 먼저 등록돼야 노드 위 pointerdown에서
@@ -56,12 +58,21 @@ export function InfiniteCanvas() {
     const state = useNodeStore.getState();
     const nodeById = new Map(state.nodes.map((node) => [node.id, node]));
 
+    const animProgress = spawnProgress(Date.now(), state.lastReplacedAt);
+
     // 연결선은 노드 아래에 깔리도록 먼저 그린다.
     for (const edge of state.edges) {
       const source = nodeById.get(edge.source);
       const target = nodeById.get(edge.target);
       if (!source || !target) continue;
-      drawEdge(ctx, source, target, currentViewport, edge.id === state.selectedEdgeId);
+      drawEdge(
+        ctx,
+        source,
+        target,
+        currentViewport,
+        edge.id === state.selectedEdgeId,
+        animProgress,
+      );
     }
     if (state.pendingEdge) {
       const source = nodeById.get(state.pendingEdge.sourceId);
@@ -78,6 +89,7 @@ export function InfiniteCanvas() {
         currentViewport,
         state.selectedIds.has(node.id),
         node.id === state.editingId,
+        animProgress,
       );
       visible += 1;
     }
@@ -113,6 +125,20 @@ export function InfiniteCanvas() {
     observer.observe(canvas);
     return () => observer.disconnect();
   }, [render]);
+
+  // 등장 애니메이션: lastReplacedAt 변경 시 SPAWN_DURATION_MS 동안 rAF로 매 프레임 다시 그린다.
+  useEffect(() => {
+    if (lastReplacedAt === null) return;
+    let rafId = 0;
+    const tick = () => {
+      setVisibleCount(render());
+      if (Date.now() - lastReplacedAt < SPAWN_DURATION_MS) {
+        rafId = requestAnimationFrame(tick);
+      }
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [lastReplacedAt, render]);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-white">
