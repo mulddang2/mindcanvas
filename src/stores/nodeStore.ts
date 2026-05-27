@@ -43,6 +43,8 @@ interface NodeStore {
   selectEdge: (id: string | null) => void;
   setHoveredNode: (id: string | null) => void;
   setPendingEdge: (edge: PendingEdge | null) => void;
+  /** 노드·엣지를 통째로 교체한다 (AI 생성 등). 선택·편집·번호 카운터는 초기화한다. */
+  replaceGraph: (nodes: CanvasNode[], edges: CanvasEdge[]) => void;
   /** 라벨 편집 모드 진입. 해당 노드만 선택한다. */
   beginEdit: (id: string) => void;
   /** 편집 결과를 노드에 반영하고 모드를 종료한다. 빈 문자열은 직전 라벨을 유지한다. */
@@ -141,6 +143,18 @@ export const useNodeStore = create<NodeStore>((set) => ({
   selectEdge: (id) => set({ selectedEdgeId: id, selectedIds: new Set() }),
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
   setPendingEdge: (edge) => set({ pendingEdge: edge }),
+  replaceGraph: (nodes, edges) =>
+    set({
+      nodes,
+      edges,
+      selectedIds: new Set(),
+      selectedEdgeId: null,
+      selectionBox: null,
+      hoveredNodeId: null,
+      pendingEdge: null,
+      editingId: null,
+      nextNodeNumber: 1,
+    }),
   beginEdit: (id) =>
     set({ editingId: id, selectedIds: new Set([id]), selectedEdgeId: null }),
   commitEdit: (label) =>
