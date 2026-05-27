@@ -20,6 +20,8 @@ interface NodeStore {
   /** 핸들이 노출될 호버 중인 노드. 없으면 null. */
   hoveredNodeId: string | null;
   pendingEdge: PendingEdge | null;
+  /** 라벨 인라인 편집 중인 노드. 없으면 null. */
+  editingId: string | null;
   nextNodeNumber: number;
   /** world 좌표를 중심으로 기본 크기 노드를 추가하고 그 노드만 선택한 뒤 id를 돌려준다. */
   addNode: (centerX: number, centerY: number) => string;
@@ -41,6 +43,12 @@ interface NodeStore {
   selectEdge: (id: string | null) => void;
   setHoveredNode: (id: string | null) => void;
   setPendingEdge: (edge: PendingEdge | null) => void;
+  /** 라벨 편집 모드 진입. 해당 노드만 선택한다. */
+  beginEdit: (id: string) => void;
+  /** 편집 결과를 노드에 반영하고 모드를 종료한다. 빈 문자열은 직전 라벨을 유지한다. */
+  commitEdit: (label: string) => void;
+  /** 편집을 취소하고 모드를 종료한다. 라벨은 그대로. */
+  cancelEdit: () => void;
   /** 선택된 연결선이 있으면 그것을, 없으면 선택된 노드 전체를 삭제한다. */
   removeSelected: () => void;
 }
@@ -53,6 +61,7 @@ export const useNodeStore = create<NodeStore>((set) => ({
   selectionBox: null,
   hoveredNodeId: null,
   pendingEdge: null,
+  editingId: null,
   nextNodeNumber: 1,
   addNode: (centerX, centerY) => {
     const id = crypto.randomUUID();
@@ -132,6 +141,23 @@ export const useNodeStore = create<NodeStore>((set) => ({
   selectEdge: (id) => set({ selectedEdgeId: id, selectedIds: new Set() }),
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
   setPendingEdge: (edge) => set({ pendingEdge: edge }),
+  beginEdit: (id) =>
+    set({ editingId: id, selectedIds: new Set([id]), selectedEdgeId: null }),
+  commitEdit: (label) =>
+    set((state) => {
+      if (!state.editingId) return state;
+      const trimmed = label.trim();
+      const editingId = state.editingId;
+      return {
+        nodes: trimmed
+          ? state.nodes.map((node) =>
+              node.id === editingId ? { ...node, label: trimmed } : node,
+            )
+          : state.nodes,
+        editingId: null,
+      };
+    }),
+  cancelEdit: () => set({ editingId: null }),
   removeSelected: () =>
     set((state) => {
       if (state.selectedEdgeId) {
