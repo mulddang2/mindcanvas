@@ -5,6 +5,7 @@ import { useCanvasStore } from '@/stores/canvasStore';
 import { useNodeStore } from '@/stores/nodeStore';
 import { screenToWorld } from '@/lib/canvas/transform';
 import {
+  hitTestCheckbox,
   hitTestEdge,
   hitTestHandle,
   hitTestNode,
@@ -99,6 +100,12 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       const hit = hitTestNode(store.nodes, world);
       if (hit) {
         e.stopImmediatePropagation();
+
+        // 2a. 체크박스 노드의 체크박스 박스 클릭 → 토글만. 드래그·선택 변경 없음.
+        if (hitTestCheckbox(hit, world)) {
+          store.toggleNodeChecked(hit.id);
+          return;
+        }
 
         if (e.shiftKey) {
           // Shift+클릭: 선택 토글만 하고 드래그는 시작하지 않는다.

@@ -7,6 +7,8 @@ import {
   Trash2,
   Plus,
   CheckSquare,
+  Square,
+  Type,
   RotateCcw,
   type LucideIcon,
 } from 'lucide-react';
@@ -23,7 +25,14 @@ export function ContextMenu() {
   const removeEdge = useNodeStore((s) => s.removeEdge);
   const addNode = useNodeStore((s) => s.addNode);
   const selectAll = useNodeStore((s) => s.selectAll);
+  const setNodeType = useNodeStore((s) => s.setNodeType);
   const resetViewport = useCanvasStore((s) => s.resetViewport);
+  // 우클릭 대상 노드의 현재 타입을 확인해 메뉴 라벨을 동적으로 정한다.
+  const targetNodeType = useNodeStore((s) =>
+    menu?.target?.type === 'node'
+      ? s.nodes.find((n) => n.id === menu.target!.id)?.type ?? 'text'
+      : null,
+  );
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -79,6 +88,25 @@ export function ContextMenu() {
               close();
             }}
           />
+          {targetNodeType === 'checkbox' ? (
+            <Item
+              icon={Type}
+              label="텍스트로 전환"
+              onClick={() => {
+                setNodeType(menu.target!.id, 'text');
+                close();
+              }}
+            />
+          ) : (
+            <Item
+              icon={Square}
+              label="체크박스로 전환"
+              onClick={() => {
+                setNodeType(menu.target!.id, 'checkbox');
+                close();
+              }}
+            />
+          )}
           <Item
             icon={Trash2}
             label="삭제"

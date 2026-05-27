@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CanvasEdge, CanvasNode, Point, WorldBounds } from '@/types/canvas';
+import type { CanvasEdge, CanvasNode, NodeType, Point, WorldBounds } from '@/types/canvas';
 
 const DEFAULT_WIDTH = 160;
 const DEFAULT_HEIGHT = 64;
@@ -72,6 +72,10 @@ interface NodeStore {
   /** 연결선 하나를 삭제한다. */
   removeEdge: (id: string) => void;
   setContextMenu: (menu: ContextMenuState | null) => void;
+  /** 노드 타입을 바꾼다. checkbox → text 전환 시 checked 상태는 유지(메타로 남음). */
+  setNodeType: (id: string, type: NodeType) => void;
+  /** 체크박스 노드의 checked 상태를 토글한다. checkbox 타입이 아니면 무시. */
+  toggleNodeChecked: (id: string) => void;
 }
 
 export const useNodeStore = create<NodeStore>((set) => ({
@@ -221,6 +225,18 @@ export const useNodeStore = create<NodeStore>((set) => ({
       selectedEdgeId: state.selectedEdgeId === id ? null : state.selectedEdgeId,
     })),
   setContextMenu: (menu) => set({ contextMenu: menu }),
+  setNodeType: (id, type) =>
+    set((state) => ({
+      nodes: state.nodes.map((node) => (node.id === id ? { ...node, type } : node)),
+    })),
+  toggleNodeChecked: (id) =>
+    set((state) => ({
+      nodes: state.nodes.map((node) =>
+        node.id === id && node.type === 'checkbox'
+          ? { ...node, checked: !(node.checked ?? false) }
+          : node,
+      ),
+    })),
   removeSelected: () =>
     set((state) => {
       if (state.selectedEdgeId) {
