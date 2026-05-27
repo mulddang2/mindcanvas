@@ -1,6 +1,7 @@
 import type { CanvasEdge, CanvasNode, Point, WorldBounds } from '@/types/canvas';
 import { cubicAt, edgePath } from './edgeGeometry';
 import { HANDLE_HIT_RADIUS, nodeHandlePoints } from './nodeHandles';
+import { CHECKBOX_PADDING, CHECKBOX_SIZE } from './drawNode';
 
 /** 연결선 클릭 판정 폭(화면 px). scale로 나눠 world 허용 오차로 쓴다. */
 const EDGE_HIT_TOLERANCE = 6;
@@ -34,6 +35,19 @@ export function nodesInBounds(nodes: CanvasNode[], bounds: WorldBounds): CanvasN
       node.x <= bounds.maxX &&
       node.y + node.height >= bounds.minY &&
       node.y <= bounds.maxY,
+  );
+}
+
+/** point가 체크박스 노드의 좌측 체크박스 박스 안에 있는지. checkbox 타입이 아니면 항상 false. */
+export function hitTestCheckbox(node: CanvasNode, point: Point): boolean {
+  if (node.type !== 'checkbox') return false;
+  const bx = node.x + CHECKBOX_PADDING;
+  const by = node.y + (node.height - CHECKBOX_SIZE) / 2;
+  return (
+    point.x >= bx &&
+    point.x <= bx + CHECKBOX_SIZE &&
+    point.y >= by &&
+    point.y <= by + CHECKBOX_SIZE
   );
 }
 
