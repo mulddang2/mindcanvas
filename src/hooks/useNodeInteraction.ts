@@ -276,6 +276,45 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       store.addNode(world.x, world.y);
     };
 
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      const world = toWorld(e.clientX, e.clientY);
+      const store = useNodeStore.getState();
+      const scale = useCanvasStore.getState().viewport.scale;
+      const node = hitTestNode(store.nodes, world);
+      if (node) {
+        // 우클릭한 노드는 단일 선택(다중 선택 중에 그 노드가 포함돼 있으면 유지).
+        if (!store.selectedIds.has(node.id)) store.selectOnly(node.id);
+        store.setContextMenu({
+          x: e.clientX,
+          y: e.clientY,
+          target: { type: 'node', id: node.id },
+          worldX: world.x,
+          worldY: world.y,
+        });
+        return;
+      }
+      const edge = hitTestEdge(store.edges, store.nodes, world, scale);
+      if (edge) {
+        store.selectEdge(edge.id);
+        store.setContextMenu({
+          x: e.clientX,
+          y: e.clientY,
+          target: { type: 'edge', id: edge.id },
+          worldX: world.x,
+          worldY: world.y,
+        });
+        return;
+      }
+      store.setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        target: null,
+        worldX: world.x,
+        worldY: world.y,
+      });
+    };
+
     const onKeyDown = (e: KeyboardEvent) => {
       // 입력 요소에 포커스가 있으면(향후 라벨 인라인 편집 등) 캔버스 단축키를
       // 가로채지 않는다 — input 타이핑 중 Backspace·Ctrl+A 오작동 방지.
@@ -318,6 +357,7 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     el.addEventListener('pointercancel', onPointerCancel);
     el.addEventListener('pointerleave', onPointerLeave);
     el.addEventListener('dblclick', onDoubleClick);
+    el.addEventListener('contextmenu', onContextMenu);
     window.addEventListener('keydown', onKeyDown);
 
     return () => {
@@ -328,6 +368,7 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       el.removeEventListener('pointercancel', onPointerCancel);
       el.removeEventListener('pointerleave', onPointerLeave);
       el.removeEventListener('dblclick', onDoubleClick);
+      el.removeEventListener('contextmenu', onContextMenu);
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [ref]);
