@@ -22,6 +22,8 @@ interface NodeStore {
   pendingEdge: PendingEdge | null;
   /** 라벨 인라인 편집 중인 노드. 없으면 null. */
   editingId: string | null;
+  /** 마지막 replaceGraph 시점(Date.now). 등장 애니메이션 시작 마커. */
+  lastReplacedAt: number | null;
   nextNodeNumber: number;
   /** world 좌표를 중심으로 기본 크기 노드를 추가하고 그 노드만 선택한 뒤 id를 돌려준다. */
   addNode: (centerX: number, centerY: number) => string;
@@ -64,6 +66,7 @@ export const useNodeStore = create<NodeStore>((set) => ({
   hoveredNodeId: null,
   pendingEdge: null,
   editingId: null,
+  lastReplacedAt: null,
   nextNodeNumber: 1,
   addNode: (centerX, centerY) => {
     const id = crypto.randomUUID();
@@ -153,6 +156,7 @@ export const useNodeStore = create<NodeStore>((set) => ({
       hoveredNodeId: null,
       pendingEdge: null,
       editingId: null,
+      lastReplacedAt: Date.now(),
       nextNodeNumber: 1,
     }),
   beginEdit: (id) =>
