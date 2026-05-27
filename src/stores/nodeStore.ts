@@ -10,6 +10,16 @@ export interface PendingEdge {
   cursor: Point;
 }
 
+/** 우클릭 컨텍스트 메뉴 상태. 메뉴 위치(화면 px)와 hit 대상, 빈 공간 노드 추가용 world 좌표를 함께 보관한다. */
+export interface ContextMenuState {
+  x: number;
+  y: number;
+  /** null이면 빈 공간 우클릭. */
+  target: { type: 'node' | 'edge'; id: string } | null;
+  worldX: number;
+  worldY: number;
+}
+
 interface NodeStore {
   nodes: CanvasNode[];
   edges: CanvasEdge[];
@@ -22,6 +32,8 @@ interface NodeStore {
   pendingEdge: PendingEdge | null;
   /** 라벨 인라인 편집 중인 노드. 없으면 null. */
   editingId: string | null;
+  /** 우클릭 컨텍스트 메뉴 상태. null이면 닫힘. */
+  contextMenu: ContextMenuState | null;
   /** 마지막 replaceGraph 시점(Date.now). 등장 애니메이션 시작 마커. */
   lastReplacedAt: number | null;
   nextNodeNumber: number;
@@ -55,6 +67,11 @@ interface NodeStore {
   cancelEdit: () => void;
   /** 선택된 연결선이 있으면 그것을, 없으면 선택된 노드 전체를 삭제한다. */
   removeSelected: () => void;
+  /** 노드를 복제해 약간 옆에 둔다. 새 노드만 선택하고 id를 돌려준다. */
+  duplicateNode: (id: string) => string | null;
+  /** 연결선 하나를 삭제한다. */
+  removeEdge: (id: string) => void;
+  setContextMenu: (menu: ContextMenuState | null) => void;
 }
 
 export const useNodeStore = create<NodeStore>((set) => ({
@@ -66,6 +83,7 @@ export const useNodeStore = create<NodeStore>((set) => ({
   hoveredNodeId: null,
   pendingEdge: null,
   editingId: null,
+  contextMenu: null,
   lastReplacedAt: null,
   nextNodeNumber: 1,
   addNode: (centerX, centerY) => {
@@ -176,6 +194,33 @@ export const useNodeStore = create<NodeStore>((set) => ({
       };
     }),
   cancelEdit: () => set({ editingId: null }),
+  duplicateNode: (id) => {
+    let newId: string | null = null;
+    set((state) => {
+      const source = state.nodes.find((node) => node.id === id);
+      if (!source) return state;
+      newId = crypto.randomUUID();
+      const copy: CanvasNode = {
+        ...source,
+        id: newId,
+        // 살짝 옆으로 이동해서 원본과 겹치지 않게.
+        x: source.x + 24,
+        y: source.y + 24,
+      };
+      return {
+        nodes: [...state.nodes, copy],
+        selectedIds: new Set([newId]),
+        selectedEdgeId: null,
+      };
+    });
+    return newId;
+  },
+  removeEdge: (id) =>
+    set((state) => ({
+      edges: state.edges.filter((edge) => edge.id !== id),
+      selectedEdgeId: state.selectedEdgeId === id ? null : state.selectedEdgeId,
+    })),
+  setContextMenu: (menu) => set({ contextMenu: menu }),
   removeSelected: () =>
     set((state) => {
       if (state.selectedEdgeId) {
