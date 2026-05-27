@@ -18,17 +18,24 @@ function strokePath(ctx: CanvasRenderingContext2D, path: EdgePath, viewport: Vie
   ctx.stroke();
 }
 
-/** 두 노드를 잇는 연결선을 베지어 곡선으로 그린다. */
+/** 두 노드를 잇는 연결선을 베지어 곡선으로 그린다. progress<1이면 등장 페이드. */
 export function drawEdge(
   ctx: CanvasRenderingContext2D,
   source: CanvasNode,
   target: CanvasNode,
   viewport: Viewport,
   selected: boolean,
+  progress: number = 1,
 ): void {
+  const animating = progress < 1;
+  if (animating) {
+    ctx.save();
+    ctx.globalAlpha = progress;
+  }
   ctx.strokeStyle = selected ? COLOR_SELECTED : COLOR;
   ctx.lineWidth = selected ? WIDTH_SELECTED : WIDTH;
   strokePath(ctx, edgePath(source, target), viewport);
+  if (animating) ctx.restore();
 }
 
 /** 핸들 드래그 중인 임시 연결선을 점선으로 그린다. */
