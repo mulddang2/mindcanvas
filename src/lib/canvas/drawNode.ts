@@ -1,11 +1,14 @@
 import type { CanvasNode, Viewport } from '@/types/canvas';
 import { worldToScreen } from './transform';
+import { getCachedImage } from './imageCache';
 
 const FILL = '#ffffff';
 const BORDER = '#c4c9d1';
 const BORDER_SELECTED = '#2563eb';
 const TEXT_COLOR = '#1f2933';
 const TEXT_CHECKED = '#94a3b8';
+const IMAGE_PLACEHOLDER_FILL = '#f1f5f9';
+const IMAGE_PLACEHOLDER_TEXT = '#94a3b8';
 const CORNER_RADIUS = 10;
 const LABEL_FONT_SIZE = 14;
 const MIN_LABEL_FONT_SIZE = 6;
@@ -55,7 +58,37 @@ export function drawNode(
   ctx.strokeStyle = selected ? BORDER_SELECTED : BORDER;
   ctx.stroke();
 
-  if (isCheckbox) {
+  if (node.type === 'image') {
+    const img = node.imageUrl ? getCachedImage(node.imageUrl) : null;
+    if (img) {
+      // 둥근 사각형 안에 contain fit으로 이미지 그리기. clip으로 모서리를 둥글게 유지.
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, radius);
+      ctx.clip();
+      const fit = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+      const drawW = img.naturalWidth * fit;
+      const drawH = img.naturalHeight * fit;
+      ctx.drawImage(img, x + (w - drawW) / 2, y + (h - drawH) / 2, drawW, drawH);
+      ctx.restore();
+    } else {
+      // 로딩 중·imageUrl 없음 placeholder. 사각형 자체는 위에서 이미 그렸으니 회색 덧칠.
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, radius);
+      ctx.fillStyle = IMAGE_PLACEHOLDER_FILL;
+      ctx.fill();
+      ctx.restore();
+      const fontSize = LABEL_FONT_SIZE * scale;
+      if (fontSize >= MIN_LABEL_FONT_SIZE) {
+        ctx.fillStyle = IMAGE_PLACEHOLDER_TEXT;
+        ctx.font = `${fontSize}px system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(node.imageUrl ? '이미지 로딩 중…' : '이미지 없음', x + w / 2, y + h / 2, w * 0.85);
+      }
+    }
+  } else if (isCheckbox) {
     // 좌측에 체크박스 박스. 라벨 영역은 그만큼 좁아진다.
     const bx = x + CHECKBOX_PADDING * scale;
     const by = y + (h - CHECKBOX_SIZE * scale) / 2;
@@ -83,7 +116,8 @@ export function drawNode(
   }
 
   // 편집 중인 노드는 input 오버레이가 라벨을 대체하므로 캔버스에서 라벨을 그리지 않는다.
-  if (!editing) {
+  // 이미지 노드는 이미지 자체가 식별 수단이라 라벨 표시는 생략한다(데이터로는 alt 용도로 유지).
+  if (!editing && node.type !== 'image') {
     // 너무 작게 줌아웃되면 글자가 뭉개지므로 라벨은 생략한다.
     const fontSize = LABEL_FONT_SIZE * scale;
     if (fontSize >= MIN_LABEL_FONT_SIZE) {

@@ -12,6 +12,7 @@ import { drawEdge, drawPendingEdge } from '@/lib/canvas/drawEdge';
 import { drawHandles } from '@/lib/canvas/nodeHandles';
 import { getVisibleBounds, isNodeVisible } from '@/lib/canvas/viewport';
 import { SPAWN_DURATION_MS, spawnProgress } from '@/lib/canvas/animation';
+import { subscribeImageEvents } from '@/lib/canvas/imageCache';
 import { NodeLabelEditor } from './NodeLabelEditor';
 
 export function InfiniteCanvas() {
@@ -124,6 +125,11 @@ export function InfiniteCanvas() {
     const observer = new ResizeObserver(() => setVisibleCount(render()));
     observer.observe(canvas);
     return () => observer.disconnect();
+  }, [render]);
+
+  // 이미지 노드의 비동기 이미지 로드가 끝나면 다시 그린다 (placeholder → 실제 이미지).
+  useEffect(() => {
+    return subscribeImageEvents(() => setVisibleCount(render()));
   }, [render]);
 
   // 등장 애니메이션: lastReplacedAt 변경 시 SPAWN_DURATION_MS 동안 rAF로 매 프레임 다시 그린다.
