@@ -13,6 +13,7 @@ import { drawHandles } from '@/lib/canvas/nodeHandles';
 import { getVisibleBounds, isNodeVisible } from '@/lib/canvas/viewport';
 import { REMOVE_DURATION_MS, SPAWN_DURATION_MS, spawnProgress } from '@/lib/canvas/animation';
 import { subscribeImageEvents } from '@/lib/canvas/imageCache';
+import { useFps } from '@/hooks/useFps';
 import { NodeLabelEditor } from './NodeLabelEditor';
 
 export function InfiniteCanvas() {
@@ -29,6 +30,7 @@ export function InfiniteCanvas() {
   const editingId = useNodeStore((state) => state.editingId);
   const lastReplacedAt = useNodeStore((state) => state.lastReplacedAt);
   const [visibleCount, setVisibleCount] = useState(0);
+  const fps = useFps();
 
   // 순서 중요: useNodeInteraction이 먼저 등록돼야 노드 위 pointerdown에서
   // stopImmediatePropagation()으로 usePanZoom의 Pan 시작을 막을 수 있다.
@@ -179,6 +181,7 @@ export function InfiniteCanvas() {
         </div>
         <div>edges {edges.length}</div>
         <div>selected {selectedIds.size}</div>
+        <div>fps {fps}</div>
       </div>
 
       <div className="pointer-events-none absolute bottom-3 left-3 select-none rounded-md bg-black/75 px-3 py-2 text-xs text-white">
