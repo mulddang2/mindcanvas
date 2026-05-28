@@ -1,6 +1,7 @@
 import type { CanvasNode, Viewport } from '@/types/canvas';
 import { worldToScreen } from './transform';
 import { getCachedImage } from './imageCache';
+import { nodeProgress } from './animation';
 
 const FILL = '#ffffff';
 const BORDER = '#c4c9d1';
@@ -37,12 +38,15 @@ export function drawNode(
   const isCheckbox = node.type === 'checkbox';
   const isChecked = isCheckbox && node.checked === true;
 
-  const animating = progress < 1;
+  // 그래프 단위 progress(외부)와 노드 개별 spawn/remove progress 중 더 작은 값으로 합성.
+  const individual = nodeProgress(Date.now(), node.spawnedAt, node.removingAt);
+  const finalProgress = Math.min(progress, individual);
+  const animating = finalProgress < 1;
   if (animating) {
     ctx.save();
-    ctx.globalAlpha = progress;
+    ctx.globalAlpha = finalProgress;
     // 중앙 기준 0.7→1.0 스케일. 페이드와 함께 "팝업" 느낌.
-    const animScale = 0.7 + 0.3 * progress;
+    const animScale = 0.7 + 0.3 * finalProgress;
     const cx = x + w / 2;
     const cy = y + h / 2;
     ctx.translate(cx, cy);

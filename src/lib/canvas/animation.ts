@@ -15,3 +15,28 @@ export function spawnProgress(now: number, startedAt: number | null): number {
   if (elapsed < 0) return 0;
   return easeOutQuad(elapsed / SPAWN_DURATION_MS);
 }
+
+/** 단일 노드 fade-out 길이(ms). 끝나면 store에서 실제 제거. */
+export const REMOVE_DURATION_MS = 400;
+
+/**
+ * 단일 노드의 추가/제거 fade 진행도(0~1). removingAt이 우선.
+ * - removingAt: 1 → 0으로 감소 (fade-out)
+ * - spawnedAt: 0 → 1로 증가 (fade-in)
+ * - 둘 다 없으면 1 (기본 표시)
+ */
+export function nodeProgress(now: number, spawnedAt?: number, removingAt?: number): number {
+  if (removingAt !== undefined) {
+    const elapsed = now - removingAt;
+    if (elapsed <= 0) return 1;
+    if (elapsed >= REMOVE_DURATION_MS) return 0;
+    return 1 - easeOutQuad(elapsed / REMOVE_DURATION_MS);
+  }
+  if (spawnedAt !== undefined) {
+    const elapsed = now - spawnedAt;
+    if (elapsed <= 0) return 0;
+    if (elapsed >= SPAWN_DURATION_MS) return 1;
+    return easeOutQuad(elapsed / SPAWN_DURATION_MS);
+  }
+  return 1;
+}
