@@ -275,11 +275,13 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       const world = toWorld(e.clientX, e.clientY);
       const store = useNodeStore.getState();
       const hit = hitTestNode(store.nodes, world);
-      // 노드 위 더블클릭 → 라벨 인라인 편집 진입. 빈 공간이면 새 노드 추가.
+      // 노드 위 더블클릭 → 라벨 인라인 편집 진입. 이미지 노드는 라벨이 없으므로 무시한다.
       if (hit) {
+        if (hit.type === 'image') return;
         store.beginEdit(hit.id);
         return;
       }
+      // 빈 공간이면 새 텍스트 노드 추가.
       store.addNode(world.x, world.y);
     };
 
