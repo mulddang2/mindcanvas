@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Plus, Trash2, CheckSquare, Network, type LucideIcon } from 'lucide-react';
+import { Plus, Trash2, CheckSquare, Network, GitFork, type LucideIcon } from 'lucide-react';
 import { useNodeStore } from '@/stores/nodeStore';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { screenToWorld } from '@/lib/canvas/transform';
 import { startForceLayout, type ForceLayoutHandle } from '@/lib/canvas/forceLayout';
+import { treeLayout } from '@/lib/canvas/treeLayout';
 
 /** 캔버스 우하단 floating 툴바. 자주 쓰는 액션을 마우스로 접근 가능하게 한다. */
 export function Toolbar() {
@@ -42,6 +43,16 @@ export function Toolbar() {
     });
   };
 
+  const onTreeLayout = () => {
+    simRef.current?.stop();
+    const { nodes, edges, selectedIds } = useNodeStore.getState();
+    // 선택된 노드가 있으면 첫 노드를 root로, 없으면 첫 노드를 root로.
+    const rootId = selectedIds.size > 0 ? [...selectedIds][0] : nodes[0]?.id;
+    if (!rootId) return;
+    const positions = treeLayout(nodes, edges, rootId);
+    if (positions.length > 0) moveNodes(positions);
+  };
+
   return (
     <div className="fixed bottom-3 right-3 z-10 flex gap-0.5 rounded-md bg-white p-1 shadow-md ring-1 ring-black/10">
       <Button icon={Plus} title="노드 추가" onClick={onAdd} />
@@ -49,6 +60,12 @@ export function Toolbar() {
         icon={Network}
         title="자동 정렬 (D3 force)"
         onClick={onAutoLayout}
+        disabled={!canLayout}
+      />
+      <Button
+        icon={GitFork}
+        title="트리 정렬 (선택 노드 root, 없으면 첫 노드)"
+        onClick={onTreeLayout}
         disabled={!canLayout}
       />
       <Button
