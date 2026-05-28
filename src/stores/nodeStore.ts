@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import type { CanvasEdge, CanvasNode, NodeType, Point, WorldBounds } from '@/types/canvas';
+import type {
+  CanvasEdge,
+  CanvasNode,
+  NodeColor,
+  NodeType,
+  Point,
+  WorldBounds,
+} from '@/types/canvas';
 import { REMOVE_DURATION_MS } from '@/lib/canvas/animation';
 
 const DEFAULT_WIDTH = 160;
@@ -79,6 +86,10 @@ interface NodeStore {
   setNodeType: (id: string, type: NodeType) => void;
   /** 체크박스 노드의 checked 상태를 토글한다. checkbox 타입이 아니면 무시. */
   toggleNodeChecked: (id: string) => void;
+  /** 여러 노드의 카테고리 색을 한 번에 변경. 'default'면 color 필드 제거(데이터 깔끔). */
+  setNodeColor: (ids: string[], color: NodeColor) => void;
+  /** 같은 카테고리 색을 가진 모든 노드를 선택 상태로 교체. removingAt인 노드는 제외. */
+  selectByColor: (color: NodeColor) => void;
 }
 
 export const useNodeStore = create<NodeStore>((set, get) => ({
@@ -278,6 +289,26 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
           ? { ...node, checked: !(node.checked ?? false) }
           : node,
       ),
+    })),
+  setNodeColor: (ids, color) =>
+    set((state) => {
+      const idSet = new Set(ids);
+      // 'default'는 undefined로 정규화 — 누락 호환 경로(getNodeColor)와 동작 동일하게 통일.
+      const next = color === 'default' ? undefined : color;
+      return {
+        nodes: state.nodes.map((node) =>
+          idSet.has(node.id) ? { ...node, color: next } : node,
+        ),
+      };
+    }),
+  selectByColor: (color) =>
+    set((state) => ({
+      selectedIds: new Set(
+        state.nodes
+          .filter((node) => node.removingAt === undefined && (node.color ?? 'default') === color)
+          .map((node) => node.id),
+      ),
+      selectedEdgeId: null,
     })),
   removeSelected: () => {
     const state = get();

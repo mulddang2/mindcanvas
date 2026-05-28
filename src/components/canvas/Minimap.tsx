@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useNodeStore } from '@/stores/nodeStore';
+import { getNodeColor } from '@/lib/canvas/nodeColors';
 
 const MINIMAP_W = 200;
 const MINIMAP_H = 140;
 const PADDING = 12;
-const NODE_FILL = '#94a3b8';
+// default 색의 border는 옅은 회색이라 미니맵 점에서 잘 안 보이므로 별도 fallback을 둔다.
+const NODE_FILL_DEFAULT = '#94a3b8';
 const NODE_FILL_SELECTED = '#2563eb';
 const VIEWPORT_STROKE = '#2563eb';
 const BG_FILL = '#ffffff';
@@ -75,10 +77,15 @@ export function Minimap() {
     const offsetX = PADDING + (innerW - worldW * scale) / 2 - minX * scale;
     const offsetY = PADDING + (innerH - worldH * scale) / 2 - minY * scale;
 
-    // 노드 그리기 (선택된 노드는 색 강조).
+    // 노드 그리기 (선택된 노드는 파란색 강조, 그 외는 카테고리 색 / default는 회색 fallback).
     for (const n of nodes) {
       if (n.removingAt !== undefined) continue;
-      ctx.fillStyle = selectedIds.has(n.id) ? NODE_FILL_SELECTED : NODE_FILL;
+      if (selectedIds.has(n.id)) {
+        ctx.fillStyle = NODE_FILL_SELECTED;
+      } else {
+        const color = n.color ?? 'default';
+        ctx.fillStyle = color === 'default' ? NODE_FILL_DEFAULT : getNodeColor(n).border;
+      }
       ctx.fillRect(
         offsetX + n.x * scale,
         offsetY + n.y * scale,

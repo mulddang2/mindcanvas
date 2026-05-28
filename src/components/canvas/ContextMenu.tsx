@@ -13,12 +13,15 @@ import {
   Image as ImageIcon,
   RotateCcw,
   Zap,
+  MousePointerSquareDashed,
   type LucideIcon,
 } from 'lucide-react';
+import type { NodeColor } from '@/types/canvas';
 import { useNodeStore } from '@/stores/nodeStore';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { uploadCanvasImage } from '@/lib/supabase/storage';
 import { seedTestGraph } from '@/lib/canvas/seedTestGraph';
+import { NODE_COLORS, NODE_COLOR_ORDER } from '@/lib/canvas/nodeColors';
 
 /** 캔버스 우클릭 시 떠오르는 컨텍스트 메뉴. 대상에 따라 항목이 달라진다. */
 export function ContextMenu() {
@@ -32,6 +35,8 @@ export function ContextMenu() {
   const addImageNode = useNodeStore((s) => s.addImageNode);
   const selectAll = useNodeStore((s) => s.selectAll);
   const setNodeType = useNodeStore((s) => s.setNodeType);
+  const setNodeColor = useNodeStore((s) => s.setNodeColor);
+  const selectByColor = useNodeStore((s) => s.selectByColor);
   const replaceGraph = useNodeStore((s) => s.replaceGraph);
   const resetViewport = useCanvasStore((s) => s.resetViewport);
   // 우클릭 대상 노드의 현재 타입을 확인해 메뉴 라벨을 동적으로 정한다.
@@ -40,6 +45,19 @@ export function ContextMenu() {
       ? s.nodes.find((n) => n.id === menu.target!.id)?.type ?? 'text'
       : null,
   );
+  // 같은 색 일괄 선택·현재 색 표시에 쓰는 대상 노드의 색.
+  const targetNodeColor = useNodeStore((s) =>
+    menu?.target?.type === 'node'
+      ? (s.nodes.find((n) => n.id === menu.target!.id)?.color ?? 'default')
+      : null,
+  );
+  const selectedIds = useNodeStore((s) => s.selectedIds);
+  // 우클릭 시점에 selectedIds에 포함돼 있으면 다중 적용, 아니면 target 단일 적용.
+  const getApplyTargetIds = () => {
+    if (menu?.target?.type !== 'node') return [];
+    const id = menu.target.id;
+    return selectedIds.has(id) ? [...selectedIds] : [id];
+  };
 
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,6 +163,21 @@ export function ContextMenu() {
                 }}
               />
             )}
+            <SwatchRow
+              current={targetNodeColor ?? 'default'}
+              onPick={(color) => {
+                setNodeColor(getApplyTargetIds(), color);
+                close();
+              }}
+            />
+            <Item
+              icon={MousePointerSquareDashed}
+              label={`같은 색 모두 선택 (${NODE_COLORS[targetNodeColor ?? 'default'].label})`}
+              onClick={() => {
+                selectByColor(targetNodeColor ?? 'default');
+                close();
+              }}
+            />
             <Item
               icon={Trash2}
               label="삭제"
@@ -249,5 +282,35 @@ function Item({
       <span className="flex-1">{label}</span>
       {shortcut && <span className="text-xs text-neutral-400">{shortcut}</span>}
     </button>
+  );
+}
+
+function SwatchRow({
+  current,
+  onPick,
+}: {
+  current: NodeColor;
+  onPick: (color: NodeColor) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 px-3 py-1.5">
+      {NODE_COLOR_ORDER.map((c) => {
+        const palette = NODE_COLORS[c];
+        const isCurrent = c === current;
+        return (
+          <button
+            key={c}
+            type="button"
+            onClick={() => onPick(c)}
+            title={palette.label}
+            aria-label={`색상 ${palette.label}`}
+            className={`h-4 w-4 rounded-full border transition-transform hover:scale-110 ${
+              isCurrent ? 'ring-2 ring-offset-1 ring-neutral-500' : ''
+            }`}
+            style={{ backgroundColor: palette.fill, borderColor: palette.border }}
+          />
+        );
+      })}
+    </div>
   );
 }
