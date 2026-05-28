@@ -78,6 +78,9 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     };
 
     const onPointerDown = (e: PointerEvent) => {
+      // 좌클릭만 노드 제스처를 시작한다. 우클릭은 contextmenu 핸들러가 별도로 처리하고,
+      // 여기서 드래그 setup을 하면 직후 pointerup이 클릭으로 판정해 다중 선택을 collapse한다.
+      if (e.button !== 0) return;
       const world = toWorld(e.clientX, e.clientY);
       const store = useNodeStore.getState();
       const scale = useCanvasStore.getState().viewport.scale;
