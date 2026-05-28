@@ -1,12 +1,23 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { Plus, Trash2, CheckSquare, Network, GitFork, type LucideIcon } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  CheckSquare,
+  Network,
+  GitFork,
+  Workflow,
+  Clock,
+  type LucideIcon,
+} from 'lucide-react';
 import { useNodeStore } from '@/stores/nodeStore';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { screenToWorld } from '@/lib/canvas/transform';
 import { startForceLayout, type ForceLayoutHandle } from '@/lib/canvas/forceLayout';
 import { treeLayout } from '@/lib/canvas/treeLayout';
+import { hierarchicalLayout } from '@/lib/canvas/hierarchicalLayout';
+import { timelineLayout } from '@/lib/canvas/timelineLayout';
 
 /** 캔버스 우하단 floating 툴바. 자주 쓰는 액션을 마우스로 접근 가능하게 한다. */
 export function Toolbar() {
@@ -53,6 +64,20 @@ export function Toolbar() {
     if (positions.length > 0) moveNodes(positions);
   };
 
+  const onHierarchicalLayout = () => {
+    simRef.current?.stop();
+    const { nodes, edges } = useNodeStore.getState();
+    const positions = hierarchicalLayout(nodes, edges);
+    if (positions.length > 0) moveNodes(positions);
+  };
+
+  const onTimelineLayout = () => {
+    simRef.current?.stop();
+    const { nodes } = useNodeStore.getState();
+    const positions = timelineLayout(nodes);
+    if (positions.length > 0) moveNodes(positions);
+  };
+
   return (
     <div className="fixed bottom-3 right-3 z-10 flex gap-0.5 rounded-md bg-white p-1 shadow-md ring-1 ring-black/10">
       <Button icon={Plus} title="노드 추가" onClick={onAdd} />
@@ -66,6 +91,18 @@ export function Toolbar() {
         icon={GitFork}
         title="트리 정렬 (선택 노드 root, 없으면 첫 노드)"
         onClick={onTreeLayout}
+        disabled={!canLayout}
+      />
+      <Button
+        icon={Workflow}
+        title="계층형 정렬 (방향 엣지 기반 layered DAG)"
+        onClick={onHierarchicalLayout}
+        disabled={!canLayout}
+      />
+      <Button
+        icon={Clock}
+        title="타임라인 정렬 (생성 순서 가로 배치)"
+        onClick={onTimelineLayout}
         disabled={!canLayout}
       />
       <Button
