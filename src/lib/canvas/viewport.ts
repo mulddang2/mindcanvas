@@ -26,3 +26,19 @@ export function isNodeVisible(node: CanvasNode, bounds: WorldBounds): boolean {
     node.y <= bounds.maxY
   );
 }
+
+/**
+ * 두 노드를 잇는 엣지가 가시 영역과 겹치는지.
+ * 베지어 곡선의 정확한 bound 대신 source·target 노드의 결합 사각형으로 근사 — fast + 약간 보수적(약간 더 그림).
+ */
+export function isEdgeVisible(
+  source: CanvasNode,
+  target: CanvasNode,
+  bounds: WorldBounds,
+): boolean {
+  const minX = Math.min(source.x, target.x);
+  const maxX = Math.max(source.x + source.width, target.x + target.width);
+  const minY = Math.min(source.y, target.y);
+  const maxY = Math.max(source.y + source.height, target.y + target.height);
+  return maxX >= bounds.minX && minX <= bounds.maxX && maxY >= bounds.minY && minY <= bounds.maxY;
+}

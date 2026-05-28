@@ -10,7 +10,7 @@ import { drawNode } from '@/lib/canvas/drawNode';
 import { drawSelectionBox } from '@/lib/canvas/drawSelectionBox';
 import { drawEdge, drawPendingEdge } from '@/lib/canvas/drawEdge';
 import { drawHandles } from '@/lib/canvas/nodeHandles';
-import { getVisibleBounds, isNodeVisible } from '@/lib/canvas/viewport';
+import { getVisibleBounds, isEdgeVisible, isNodeVisible } from '@/lib/canvas/viewport';
 import { REMOVE_DURATION_MS, SPAWN_DURATION_MS, spawnProgress } from '@/lib/canvas/animation';
 import { subscribeImageEvents } from '@/lib/canvas/imageCache';
 import { useFps } from '@/hooks/useFps';
@@ -62,12 +62,14 @@ export function InfiniteCanvas() {
     const nodeById = new Map(state.nodes.map((node) => [node.id, node]));
 
     const animProgress = spawnProgress(Date.now(), state.lastReplacedAt);
+    const bounds = getVisibleBounds(currentViewport, width, height);
 
-    // 연결선은 노드 아래에 깔리도록 먼저 그린다.
+    // 연결선은 노드 아래에 깔리도록 먼저 그린다. 화면 밖 엣지는 culling으로 skip — 1만 엣지 시 큰 절감.
     for (const edge of state.edges) {
       const source = nodeById.get(edge.source);
       const target = nodeById.get(edge.target);
       if (!source || !target) continue;
+      if (!isEdgeVisible(source, target, bounds)) continue;
       drawEdge(
         ctx,
         source,
@@ -82,7 +84,6 @@ export function InfiniteCanvas() {
       if (source) drawPendingEdge(ctx, source, state.pendingEdge.cursor, currentViewport);
     }
 
-    const bounds = getVisibleBounds(currentViewport, width, height);
     let visible = 0;
     for (const node of state.nodes) {
       if (!isNodeVisible(node, bounds)) continue;
