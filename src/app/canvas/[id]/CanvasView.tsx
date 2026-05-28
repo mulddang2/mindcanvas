@@ -7,6 +7,7 @@ import { AiPromptBar } from '@/components/canvas/AiPromptBar';
 import { Toolbar } from '@/components/canvas/Toolbar';
 import { ContextMenu } from '@/components/canvas/ContextMenu';
 import { CanvasTitle } from '@/components/canvas/CanvasTitle';
+import { Minimap } from '@/components/canvas/Minimap';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { useAutosave } from '@/hooks/useAutosave';
 import type { CanvasGraph } from '@/lib/supabase/canvases';
@@ -44,6 +45,7 @@ export function CanvasView({ canvasId, title, initialGraph, demo = false }: Prop
         editable={!demo}
         status={status}
       />
+      <Minimap />
       <UserMenu />
     </>
   );
