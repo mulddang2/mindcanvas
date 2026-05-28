@@ -39,6 +39,8 @@ interface NodeStore {
   nextNodeNumber: number;
   /** world 좌표를 중심으로 기본 크기 노드를 추가하고 그 노드만 선택한 뒤 id를 돌려준다. */
   addNode: (centerX: number, centerY: number) => string;
+  /** 이미지 URL을 가진 이미지 노드를 추가한다. */
+  addImageNode: (centerX: number, centerY: number, imageUrl: string) => string;
   removeNode: (id: string) => void;
   updateNode: (id: string, patch: Partial<Omit<CanvasNode, 'id'>>) => void;
   /** 여러 노드 위치를 한 번에 절대 좌표로 옮긴다 (다중 드래그용). */
@@ -100,6 +102,28 @@ export const useNodeStore = create<NodeStore>((set) => ({
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
         label: `노드 ${state.nextNodeNumber}`,
+      };
+      return {
+        nodes: [...state.nodes, node],
+        selectedIds: new Set([id]),
+        selectedEdgeId: null,
+        nextNodeNumber: state.nextNodeNumber + 1,
+      };
+    });
+    return id;
+  },
+  addImageNode: (centerX, centerY, imageUrl) => {
+    const id = crypto.randomUUID();
+    set((state) => {
+      const node: CanvasNode = {
+        id,
+        x: centerX - DEFAULT_WIDTH / 2,
+        y: centerY - DEFAULT_HEIGHT / 2,
+        width: DEFAULT_WIDTH,
+        height: DEFAULT_HEIGHT,
+        label: `이미지 ${state.nextNodeNumber}`,
+        type: 'image',
+        imageUrl,
       };
       return {
         nodes: [...state.nodes, node],
