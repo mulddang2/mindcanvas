@@ -2,11 +2,9 @@ import type { CanvasNode, Viewport } from '@/types/canvas';
 import { worldToScreen } from './transform';
 import { getCachedImage } from './imageCache';
 import { nodeProgress } from './animation';
+import { getNodeColor } from './nodeColors';
 
-const FILL = '#ffffff';
-const BORDER = '#c4c9d1';
 const BORDER_SELECTED = '#2563eb';
-const TEXT_COLOR = '#1f2933';
 const TEXT_CHECKED = '#94a3b8';
 const IMAGE_PLACEHOLDER_FILL = '#f1f5f9';
 const IMAGE_PLACEHOLDER_TEXT = '#94a3b8';
@@ -37,6 +35,7 @@ export function drawNode(
   const radius = Math.min(CORNER_RADIUS * scale, w / 2, h / 2);
   const isCheckbox = node.type === 'checkbox';
   const isChecked = isCheckbox && node.checked === true;
+  const palette = getNodeColor(node);
 
   // 그래프 단위 progress(외부)와 노드 개별 spawn/remove progress 중 더 작은 값으로 합성.
   const individual = nodeProgress(Date.now(), node.spawnedAt, node.removingAt);
@@ -56,10 +55,10 @@ export function drawNode(
 
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, radius);
-  ctx.fillStyle = FILL;
+  ctx.fillStyle = palette.fill;
   ctx.fill();
   ctx.lineWidth = selected ? 2 : 1;
-  ctx.strokeStyle = selected ? BORDER_SELECTED : BORDER;
+  ctx.strokeStyle = selected ? BORDER_SELECTED : palette.border;
   ctx.stroke();
 
   if (node.type === 'image') {
@@ -100,7 +99,8 @@ export function drawNode(
     const br = Math.min(3 * scale, bs / 2);
     ctx.beginPath();
     ctx.roundRect(bx, by, bs, bs, br);
-    ctx.fillStyle = isChecked ? CHECKBOX_FILL_CHECKED : FILL;
+    // 박스 자체는 노드 카테고리 색과 대비되도록 항상 흰색 베이스(checked 시 파랑 고정).
+    ctx.fillStyle = isChecked ? CHECKBOX_FILL_CHECKED : '#ffffff';
     ctx.fill();
     ctx.lineWidth = 1.5;
     ctx.strokeStyle = isChecked ? CHECKBOX_FILL_CHECKED : CHECKBOX_BORDER;
@@ -125,7 +125,7 @@ export function drawNode(
     // 너무 작게 줌아웃되면 글자가 뭉개지므로 라벨은 생략한다.
     const fontSize = LABEL_FONT_SIZE * scale;
     if (fontSize >= MIN_LABEL_FONT_SIZE) {
-      ctx.fillStyle = isChecked ? TEXT_CHECKED : TEXT_COLOR;
+      ctx.fillStyle = isChecked ? TEXT_CHECKED : palette.text;
       ctx.font = `${fontSize}px system-ui, sans-serif`;
       ctx.textBaseline = 'middle';
       if (isCheckbox) {
