@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useNodeStore } from '@/stores/nodeStore';
 
@@ -22,11 +22,21 @@ export function Minimap() {
   const nodes = useNodeStore((s) => s.nodes);
   const selectedIds = useNodeStore((s) => s.selectedIds);
   const viewport = useCanvasStore((s) => s.viewport);
+  // 창 크기 변경 시 viewport 사각형이 stale되지 않도록 별도 state로 추적.
+  const [windowSize, setWindowSize] = useState({ w: 0, h: 0 });
+
+  useEffect(() => {
+    const update = () => setWindowSize({ w: window.innerWidth, h: window.innerHeight });
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
+    if (windowSize.w === 0) return; // 초기 mount 직후 update 이전엔 그리지 않음.
 
     const dpr = window.devicePixelRatio || 1;
     canvas.width = MINIMAP_W * dpr;
@@ -39,8 +49,8 @@ export function Minimap() {
     // 현재 화면(viewport)의 world 영역 — 노드 없을 때도 표시되도록 별도 계산.
     const viewWorldLeft = viewport.x;
     const viewWorldTop = viewport.y;
-    const viewWorldRight = viewport.x + window.innerWidth / viewport.scale;
-    const viewWorldBottom = viewport.y + window.innerHeight / viewport.scale;
+    const viewWorldRight = viewport.x + windowSize.w / viewport.scale;
+    const viewWorldBottom = viewport.y + windowSize.h / viewport.scale;
 
     // 노드 + viewport를 모두 감싸는 world bounds (한쪽이 비어도 항상 무언가 표시).
     let minX = viewWorldLeft;
@@ -86,7 +96,7 @@ export function Minimap() {
       (viewWorldRight - viewWorldLeft) * scale,
       (viewWorldBottom - viewWorldTop) * scale,
     );
-  }, [nodes, selectedIds, viewport]);
+  }, [nodes, selectedIds, viewport, windowSize]);
 
   return (
     <div
