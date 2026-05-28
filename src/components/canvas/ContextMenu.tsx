@@ -12,11 +12,13 @@ import {
   Type,
   Image as ImageIcon,
   RotateCcw,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 import { useNodeStore } from '@/stores/nodeStore';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { uploadCanvasImage } from '@/lib/supabase/storage';
+import { seedTestGraph } from '@/lib/canvas/seedTestGraph';
 
 /** 캔버스 우클릭 시 떠오르는 컨텍스트 메뉴. 대상에 따라 항목이 달라진다. */
 export function ContextMenu() {
@@ -30,6 +32,7 @@ export function ContextMenu() {
   const addImageNode = useNodeStore((s) => s.addImageNode);
   const selectAll = useNodeStore((s) => s.selectAll);
   const setNodeType = useNodeStore((s) => s.setNodeType);
+  const replaceGraph = useNodeStore((s) => s.replaceGraph);
   const resetViewport = useCanvasStore((s) => s.resetViewport);
   // 우클릭 대상 노드의 현재 타입을 확인해 메뉴 라벨을 동적으로 정한다.
   const targetNodeType = useNodeStore((s) =>
@@ -203,6 +206,17 @@ export function ContextMenu() {
                 close();
               }}
             />
+            {process.env.NODE_ENV === 'development' && (
+              <Item
+                icon={Zap}
+                label="테스트: 1만 노드 생성"
+                onClick={() => {
+                  const { nodes, edges } = seedTestGraph(10000);
+                  replaceGraph(nodes, edges);
+                  close();
+                }}
+              />
+            )}
           </>
         )}
       </div>
