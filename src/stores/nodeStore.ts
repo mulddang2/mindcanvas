@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { CanvasEdge, CanvasNode, NodeType, Point, WorldBounds } from '@/types/canvas';
+import { REMOVE_DURATION_MS } from '@/lib/canvas/animation';
 
 const DEFAULT_WIDTH = 160;
 const DEFAULT_HEIGHT = 64;
@@ -80,7 +81,7 @@ interface NodeStore {
   toggleNodeChecked: (id: string) => void;
 }
 
-export const useNodeStore = create<NodeStore>((set) => ({
+export const useNodeStore = create<NodeStore>((set, get) => ({
   nodes: [],
   edges: [],
   selectedIds: new Set(),
@@ -102,6 +103,7 @@ export const useNodeStore = create<NodeStore>((set) => ({
         width: DEFAULT_WIDTH,
         height: DEFAULT_HEIGHT,
         label: `노드 ${state.nextNodeNumber}`,
+        spawnedAt: Date.now(),
       };
       return {
         nodes: [...state.nodes, node],
@@ -124,6 +126,7 @@ export const useNodeStore = create<NodeStore>((set) => ({
         label: `이미지 ${state.nextNodeNumber}`,
         type: 'image',
         imageUrl,
+        spawnedAt: Date.now(),
       };
       return {
         nodes: [...state.nodes, node],
@@ -134,18 +137,30 @@ export const useNodeStore = create<NodeStore>((set) => ({
     });
     return id;
   },
-  removeNode: (id) =>
+  removeNode: (id) => {
+    // 1단계: removingAt 설정으로 fade-out 시작. 선택에서도 즉시 제외.
     set((state) => {
-      const nodes = state.nodes.filter((node) => node.id !== id);
       const selectedIds = new Set(state.selectedIds);
       selectedIds.delete(id);
       return {
-        nodes,
-        edges: state.edges.filter((edge) => edge.source !== id && edge.target !== id),
+        nodes: state.nodes.map((node) =>
+          node.id === id ? { ...node, removingAt: Date.now() } : node,
+        ),
         selectedIds,
-        nextNodeNumber: nodes.length === 0 ? 1 : state.nextNodeNumber,
       };
-    }),
+    });
+    // 2단계: fade-out 끝나면 store에서 실제 제거 + 연결 엣지 정리.
+    setTimeout(() => {
+      set((state) => {
+        const nodes = state.nodes.filter((node) => node.id !== id);
+        return {
+          nodes,
+          edges: state.edges.filter((edge) => edge.source !== id && edge.target !== id),
+          nextNodeNumber: nodes.length === 0 ? 1 : state.nextNodeNumber,
+        };
+      });
+    }, REMOVE_DURATION_MS);
+  },
   updateNode: (id, patch) =>
     set((state) => ({
       nodes: state.nodes.map((node) => (node.id === id ? { ...node, ...patch } : node)),
@@ -234,6 +249,9 @@ export const useNodeStore = create<NodeStore>((set) => ({
         // 살짝 옆으로 이동해서 원본과 겹치지 않게.
         x: source.x + 24,
         y: source.y + 24,
+        spawnedAt: Date.now(),
+        // 원본이 fade-out 중이었어도 복사본은 새로 등장하므로 removingAt 해제.
+        removingAt: undefined,
       };
       return {
         nodes: [...state.nodes, copy],
@@ -261,23 +279,38 @@ export const useNodeStore = create<NodeStore>((set) => ({
           : node,
       ),
     })),
-  removeSelected: () =>
-    set((state) => {
-      if (state.selectedEdgeId) {
+  removeSelected: () => {
+    const state = get();
+    if (state.selectedEdgeId) {
+      // 엣지는 transition 없이 즉시 제거.
+      set({
+        edges: state.edges.filter((edge) => edge.id !== state.selectedEdgeId),
+        selectedEdgeId: null,
+      });
+      return;
+    }
+    if (state.selectedIds.size === 0) return;
+    const removingIds = new Set(state.selectedIds);
+    const now = Date.now();
+    // 1단계: 선택 노드들에 removingAt 설정 + 선택 해제.
+    set({
+      nodes: state.nodes.map((node) =>
+        removingIds.has(node.id) ? { ...node, removingAt: now } : node,
+      ),
+      selectedIds: new Set(),
+    });
+    // 2단계: fade-out 끝나면 실제 제거 + 연결 엣지 정리.
+    setTimeout(() => {
+      set((s) => {
+        const nodes = s.nodes.filter((node) => !removingIds.has(node.id));
         return {
-          edges: state.edges.filter((edge) => edge.id !== state.selectedEdgeId),
-          selectedEdgeId: null,
+          nodes,
+          edges: s.edges.filter(
+            (edge) => !removingIds.has(edge.source) && !removingIds.has(edge.target),
+          ),
+          nextNodeNumber: nodes.length === 0 ? 1 : s.nextNodeNumber,
         };
-      }
-      if (state.selectedIds.size === 0) return state;
-      const nodes = state.nodes.filter((node) => !state.selectedIds.has(node.id));
-      return {
-        nodes,
-        edges: state.edges.filter(
-          (edge) => !state.selectedIds.has(edge.source) && !state.selectedIds.has(edge.target),
-        ),
-        selectedIds: new Set(),
-        nextNodeNumber: nodes.length === 0 ? 1 : state.nextNodeNumber,
-      };
-    }),
+      });
+    }, REMOVE_DURATION_MS);
+  },
 }));

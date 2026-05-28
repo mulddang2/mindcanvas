@@ -11,7 +11,7 @@ import { drawSelectionBox } from '@/lib/canvas/drawSelectionBox';
 import { drawEdge, drawPendingEdge } from '@/lib/canvas/drawEdge';
 import { drawHandles } from '@/lib/canvas/nodeHandles';
 import { getVisibleBounds, isNodeVisible } from '@/lib/canvas/viewport';
-import { SPAWN_DURATION_MS, spawnProgress } from '@/lib/canvas/animation';
+import { REMOVE_DURATION_MS, SPAWN_DURATION_MS, spawnProgress } from '@/lib/canvas/animation';
 import { subscribeImageEvents } from '@/lib/canvas/imageCache';
 import { NodeLabelEditor } from './NodeLabelEditor';
 
@@ -145,6 +145,26 @@ export function InfiniteCanvas() {
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   }, [lastReplacedAt, render]);
+
+  // 단일 노드 추가/제거 transition: spawnedAt 또는 removingAt 진행 중인 노드가 있으면 rAF로 재드로잉.
+  useEffect(() => {
+    const hasActive = (): boolean => {
+      const now = Date.now();
+      return useNodeStore.getState().nodes.some((n) => {
+        if (n.removingAt !== undefined && now - n.removingAt < REMOVE_DURATION_MS) return true;
+        if (n.spawnedAt !== undefined && now - n.spawnedAt < SPAWN_DURATION_MS) return true;
+        return false;
+      });
+    };
+    if (!hasActive()) return;
+    let rafId = 0;
+    const tick = () => {
+      setVisibleCount(render());
+      if (hasActive()) rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [nodes, render]);
 
   return (
     <div className="fixed inset-0 overflow-hidden bg-white">

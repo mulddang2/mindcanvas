@@ -15,6 +15,8 @@ const EDGE_SAMPLES = 16;
 export function hitTestNode(nodes: CanvasNode[], point: Point): CanvasNode | null {
   for (let i = nodes.length - 1; i >= 0; i -= 1) {
     const node = nodes[i];
+    // fade-out 중인 노드는 곧 사라질 예정 → 클릭·드래그 대상에서 제외.
+    if (node.removingAt !== undefined) continue;
     if (
       point.x >= node.x &&
       point.x <= node.x + node.width &&
@@ -27,10 +29,11 @@ export function hitTestNode(nodes: CanvasNode[], point: Point): CanvasNode | nul
   return null;
 }
 
-/** world 영역과 사각형이 한 점이라도 겹치는 모든 노드 (영역 선택용). */
+/** world 영역과 사각형이 한 점이라도 겹치는 모든 노드 (영역 선택용). fade-out 중 노드는 제외. */
 export function nodesInBounds(nodes: CanvasNode[], bounds: WorldBounds): CanvasNode[] {
   return nodes.filter(
     (node) =>
+      node.removingAt === undefined &&
       node.x + node.width >= bounds.minX &&
       node.x <= bounds.maxX &&
       node.y + node.height >= bounds.minY &&
