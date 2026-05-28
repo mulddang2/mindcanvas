@@ -1,10 +1,11 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { Plus, Trash2, CheckSquare, Network, type LucideIcon } from 'lucide-react';
 import { useNodeStore } from '@/stores/nodeStore';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { screenToWorld } from '@/lib/canvas/transform';
-import { runForceLayout } from '@/lib/canvas/forceLayout';
+import { startForceLayout, type ForceLayoutHandle } from '@/lib/canvas/forceLayout';
 
 /** 캔버스 우하단 floating 툴바. 자주 쓰는 액션을 마우스로 접근 가능하게 한다. */
 export function Toolbar() {
@@ -15,10 +16,14 @@ export function Toolbar() {
   const removeSelected = useNodeStore((s) => s.removeSelected);
   const selectAll = useNodeStore((s) => s.selectAll);
   const moveNodes = useNodeStore((s) => s.moveNodes);
+  // 진행 중인 시뮬레이션 핸들. 다시 클릭하거나 언마운트 시 stop을 호출하기 위해 보관.
+  const simRef = useRef<ForceLayoutHandle | null>(null);
 
   const hasSelection = selectedIds.size > 0 || selectedEdgeId !== null;
   const hasNodes = nodesCount > 0;
   const canLayout = nodesCount >= 2;
+
+  useEffect(() => () => simRef.current?.stop(), []);
 
   const onAdd = () => {
     // 화면 중심을 world로 변환해 새 노드를 그 위치에 추가.
@@ -30,9 +35,11 @@ export function Toolbar() {
   };
 
   const onAutoLayout = () => {
+    simRef.current?.stop();
     const { nodes, edges } = useNodeStore.getState();
-    const positions = runForceLayout(nodes, edges);
-    moveNodes(positions);
+    simRef.current = startForceLayout(nodes, edges, (positions) => {
+      moveNodes(positions);
+    });
   };
 
   return (
