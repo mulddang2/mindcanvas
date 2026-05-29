@@ -23,18 +23,18 @@ interface Props {
 
 /** 캔버스 페이지의 클라이언트 진입점. 초기 그래프를 store에 hydrate하고 자동 저장 hook을 건다. */
 export function CanvasView({ canvasId, title, initialGraph, demo = false }: Props) {
-  const replaceGraph = useNodeStore((s) => s.replaceGraph);
+  const hydrateIfEmpty = useNodeStore((s) => s.hydrateIfEmpty);
   const status = useAutosave({ canvasId, enabled: !demo });
-  // Y.Doc · WebsocketProvider 라이프사이클. 후속 PR에서 노드/엣지 store과 동기화 예정.
+  // Y.Doc · WebsocketProvider + nodeStore 바인딩.
   useYjs(canvasId);
   const hydratedRef = useRef(false);
 
-  // 첫 mount 시점에 서버에서 받은 그래프를 store에 주입. 이후엔 hydrate 안 함.
+  // 첫 mount 시점에 서버 데이터를 Y.Doc에 주입. 단, Y.Doc이 이미 채워진 상태(다른 탭 선진입)면 skip.
   useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
-    replaceGraph(initialGraph.nodes, initialGraph.edges);
-  }, [initialGraph, replaceGraph]);
+    hydrateIfEmpty(initialGraph.nodes, initialGraph.edges);
+  }, [initialGraph, hydrateIfEmpty]);
 
   return (
     <>
