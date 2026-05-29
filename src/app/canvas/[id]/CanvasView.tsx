@@ -14,7 +14,8 @@ import { useAutosave } from '@/hooks/useAutosave';
 import { useYjs } from '@/hooks/useYjs';
 import { useAwareness } from '@/hooks/useAwareness';
 import { useRoleStore } from '@/stores/roleStore';
-import type { CanvasRole } from '@/lib/supabase/permissions';
+import { useShareTokenStore } from '@/stores/shareTokenStore';
+import { canEdit, type CanvasRole } from '@/lib/supabase/permissions';
 import type { CanvasGraph } from '@/lib/supabase/canvases';
 
 interface Props {
@@ -25,6 +26,8 @@ interface Props {
   demo?: boolean;
   /** 공유 라우트(/canvas/share/[token])에서 진입 시 'view'·'edit'. 기본 'owner'(소유자 직접 진입). */
   role?: CanvasRole;
+  /** 공유 라우트 토큰. shareTokenStore에 set돼 createClient가 헤더로 주입한다. */
+  shareToken?: string;
 }
 
 /** 캔버스 페이지의 클라이언트 진입점. 초기 그래프를 store에 hydrate하고 자동 저장 hook을 건다. */
@@ -34,11 +37,13 @@ export function CanvasView({
   initialGraph,
   demo = false,
   role = 'owner',
+  shareToken,
 }: Props) {
   const hydrateIfEmpty = useNodeStore((s) => s.hydrateIfEmpty);
   const setRole = useRoleStore((s) => s.setRole);
-  // 자동저장은 owner·edit role에서만. demo도 비활성.
-  const status = useAutosave({ canvasId, enabled: !demo && role === 'owner' });
+  const setShareToken = useShareTokenStore((s) => s.setToken);
+  // 자동저장은 편집 권한이 있을 때만(owner·edit). demo는 항상 비활성.
+  const status = useAutosave({ canvasId, enabled: !demo && canEdit(role) });
   // Y.Doc · WebsocketProvider + nodeStore 바인딩 + 멀티커서 awareness.
   useYjs(canvasId);
   useAwareness(canvasId);
@@ -49,6 +54,12 @@ export function CanvasView({
     setRole(role);
     return () => setRole(null);
   }, [role, setRole]);
+
+  // 공유 라우트에서 받은 토큰을 store에 set — createClient가 헤더로 자동 주입.
+  useEffect(() => {
+    setShareToken(shareToken ?? null);
+    return () => setShareToken(null);
+  }, [shareToken, setShareToken]);
 
   // 첫 mount 시점에 서버 데이터를 Y.Doc에 주입. 단, Y.Doc이 이미 채워진 상태(다른 탭 선진입)면 skip.
   useEffect(() => {
