@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import * as Y from 'yjs';
 import type {
   CanvasEdge,
   CanvasNode,
@@ -11,6 +12,8 @@ import { REMOVE_DURATION_MS } from '@/lib/canvas/animation';
 
 const DEFAULT_WIDTH = 160;
 const DEFAULT_HEIGHT = 64;
+const Y_NODES = 'nodes';
+const Y_EDGES = 'edges';
 
 /** 핸들 드래그 중인 임시 연결선. source 노드에서 cursor world 좌표까지 그린다. */
 export interface PendingEdge {
@@ -29,7 +32,9 @@ export interface ContextMenuState {
 }
 
 interface NodeStore {
+  /** Y.Map<CanvasNode>의 view. mutation은 Y.Map을 거치고 observer가 이 배열을 갱신한다. */
   nodes: CanvasNode[];
+  /** Y.Map<CanvasEdge>의 view. */
   edges: CanvasEdge[];
   selectedIds: Set<string>;
   selectedEdgeId: string | null;
@@ -69,6 +74,11 @@ interface NodeStore {
   setPendingEdge: (edge: PendingEdge | null) => void;
   /** 노드·엣지를 통째로 교체한다 (AI 생성 등). 선택·편집·번호 카운터는 초기화한다. */
   replaceGraph: (nodes: CanvasNode[], edges: CanvasEdge[]) => void;
+  /**
+   * Y.Doc이 비어있을 때만 initial로 채운다 (페이지 첫 진입 hydrate 전용).
+   * 다른 탭이 먼저 들어와 Y.Doc에 데이터를 채워둔 경우, 초기 hydrate가 그 데이터를 덮어쓰지 않게 한다.
+   */
+  hydrateIfEmpty: (nodes: CanvasNode[], edges: CanvasEdge[]) => void;
   /** 라벨 편집 모드 진입. 해당 노드만 선택한다. */
   beginEdit: (id: string) => void;
   /** 편집 결과를 노드에 반영하고 모드를 종료한다. 빈 문자열은 직전 라벨을 유지한다. */
@@ -92,6 +102,33 @@ interface NodeStore {
   selectByColor: (color: NodeColor) => void;
 }
 
+// Y.js binding은 모듈 레벨 mutable로. CanvasView가 useYjs로 마운트 시 bind, unmount 시 unbind.
+let yNodes: Y.Map<CanvasNode> | null = null;
+let yEdges: Y.Map<CanvasEdge> | null = null;
+let boundDoc: Y.Doc | null = null;
+let nodesObserver: ((event: Y.YMapEvent<CanvasNode>) => void) | null = null;
+let edgesObserver: ((event: Y.YMapEvent<CanvasEdge>) => void) | null = null;
+
+function requireYNodes(): Y.Map<CanvasNode> {
+  if (!yNodes) throw new Error('nodeStore not bound to Y.Doc — useYjs를 먼저 호출하세요');
+  return yNodes;
+}
+function requireYEdges(): Y.Map<CanvasEdge> {
+  if (!yEdges) throw new Error('nodeStore not bound to Y.Doc');
+  return yEdges;
+}
+function requireDoc(): Y.Doc {
+  if (!boundDoc) throw new Error('nodeStore not bound to Y.Doc');
+  return boundDoc;
+}
+
+function snapshotNodes(): CanvasNode[] {
+  return yNodes ? Array.from(yNodes.values()) : [];
+}
+function snapshotEdges(): CanvasEdge[] {
+  return yEdges ? Array.from(yEdges.values()) : [];
+}
+
 export const useNodeStore = create<NodeStore>((set, get) => ({
   nodes: [],
   edges: [],
@@ -106,86 +143,81 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
   nextNodeNumber: 1,
   addNode: (centerX, centerY) => {
     const id = crypto.randomUUID();
-    set((state) => {
-      const node: CanvasNode = {
-        id,
-        x: centerX - DEFAULT_WIDTH / 2,
-        y: centerY - DEFAULT_HEIGHT / 2,
-        width: DEFAULT_WIDTH,
-        height: DEFAULT_HEIGHT,
-        label: `노드 ${state.nextNodeNumber}`,
-        spawnedAt: Date.now(),
-      };
-      return {
-        nodes: [...state.nodes, node],
-        selectedIds: new Set([id]),
-        selectedEdgeId: null,
-        nextNodeNumber: state.nextNodeNumber + 1,
-      };
+    const number = get().nextNodeNumber;
+    const node: CanvasNode = {
+      id,
+      x: centerX - DEFAULT_WIDTH / 2,
+      y: centerY - DEFAULT_HEIGHT / 2,
+      width: DEFAULT_WIDTH,
+      height: DEFAULT_HEIGHT,
+      label: `노드 ${number}`,
+      spawnedAt: Date.now(),
+    };
+    requireYNodes().set(id, node);
+    set({
+      selectedIds: new Set([id]),
+      selectedEdgeId: null,
+      nextNodeNumber: number + 1,
     });
     return id;
   },
   addImageNode: (centerX, centerY, imageUrl) => {
     const id = crypto.randomUUID();
-    set((state) => {
-      const node: CanvasNode = {
-        id,
-        x: centerX - DEFAULT_WIDTH / 2,
-        y: centerY - DEFAULT_HEIGHT / 2,
-        width: DEFAULT_WIDTH,
-        height: DEFAULT_HEIGHT,
-        label: `이미지 ${state.nextNodeNumber}`,
-        type: 'image',
-        imageUrl,
-        spawnedAt: Date.now(),
-      };
-      return {
-        nodes: [...state.nodes, node],
-        selectedIds: new Set([id]),
-        selectedEdgeId: null,
-        nextNodeNumber: state.nextNodeNumber + 1,
-      };
+    const number = get().nextNodeNumber;
+    const node: CanvasNode = {
+      id,
+      x: centerX - DEFAULT_WIDTH / 2,
+      y: centerY - DEFAULT_HEIGHT / 2,
+      width: DEFAULT_WIDTH,
+      height: DEFAULT_HEIGHT,
+      label: `이미지 ${number}`,
+      type: 'image',
+      imageUrl,
+      spawnedAt: Date.now(),
+    };
+    requireYNodes().set(id, node);
+    set({
+      selectedIds: new Set([id]),
+      selectedEdgeId: null,
+      nextNodeNumber: number + 1,
     });
     return id;
   },
   removeNode: (id) => {
-    // 1단계: removingAt 설정으로 fade-out 시작. 선택에서도 즉시 제외.
+    const node = requireYNodes().get(id);
+    if (!node) return;
+    // 1단계: removingAt 설정으로 양쪽 탭에서 동시에 fade-out 시작.
+    requireYNodes().set(id, { ...node, removingAt: Date.now() });
     set((state) => {
       const selectedIds = new Set(state.selectedIds);
       selectedIds.delete(id);
-      return {
-        nodes: state.nodes.map((node) =>
-          node.id === id ? { ...node, removingAt: Date.now() } : node,
-        ),
-        selectedIds,
-      };
+      return { selectedIds };
     });
-    // 2단계: fade-out 끝나면 store에서 실제 제거 + 연결 엣지 정리.
+    // 2단계: fade-out 끝나면 실제 삭제. Y.Map.delete는 idempotent라 양쪽 탭이 같이 호출해도 안전.
     setTimeout(() => {
-      set((state) => {
-        const nodes = state.nodes.filter((node) => node.id !== id);
-        return {
-          nodes,
-          edges: state.edges.filter((edge) => edge.source !== id && edge.target !== id),
-          nextNodeNumber: nodes.length === 0 ? 1 : state.nextNodeNumber,
-        };
+      requireDoc().transact(() => {
+        requireYNodes().delete(id);
+        requireYEdges().forEach((edge, edgeId) => {
+          if (edge.source === id || edge.target === id) requireYEdges().delete(edgeId);
+        });
       });
+      if (requireYNodes().size === 0) set({ nextNodeNumber: 1 });
     }, REMOVE_DURATION_MS);
   },
-  updateNode: (id, patch) =>
-    set((state) => ({
-      nodes: state.nodes.map((node) => (node.id === id ? { ...node, ...patch } : node)),
-    })),
-  moveNodes: (positions) =>
-    set((state) => {
-      const byId = new Map(positions.map((p) => [p.id, p]));
-      return {
-        nodes: state.nodes.map((node) => {
-          const pos = byId.get(node.id);
-          return pos ? { ...node, x: pos.x, y: pos.y } : node;
-        }),
-      };
-    }),
+  updateNode: (id, patch) => {
+    const node = requireYNodes().get(id);
+    if (!node) return;
+    requireYNodes().set(id, { ...node, ...patch });
+  },
+  moveNodes: (positions) => {
+    requireDoc().transact(() => {
+      const map = requireYNodes();
+      for (const p of positions) {
+        const node = map.get(p.id);
+        if (node) map.set(p.id, { ...node, x: p.x, y: p.y });
+      }
+    });
+  },
   selectOnly: (id) =>
     set({ selectedIds: id ? new Set([id]) : new Set(), selectedEdgeId: null }),
   toggleSelect: (id) =>
@@ -197,31 +229,38 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
     }),
   setSelection: (ids) => set({ selectedIds: new Set(ids), selectedEdgeId: null }),
   selectAll: () =>
-    set((state) => ({
-      selectedIds: new Set(state.nodes.map((node) => node.id)),
+    set({
+      selectedIds: new Set(snapshotNodes().map((n) => n.id)),
       selectedEdgeId: null,
-    })),
-  setSelectionBox: (box) => set({ selectionBox: box }),
-  addEdge: (source, target) =>
-    set((state) => {
-      if (source === target) return state;
-      const exists = state.edges.some(
-        (edge) =>
-          (edge.source === source && edge.target === target) ||
-          (edge.source === target && edge.target === source),
-      );
-      if (exists) return state;
-      return {
-        edges: [...state.edges, { id: crypto.randomUUID(), source, target }],
-      };
     }),
+  setSelectionBox: (box) => set({ selectionBox: box }),
+  addEdge: (source, target) => {
+    if (source === target) return;
+    const edges = requireYEdges();
+    for (const edge of edges.values()) {
+      if (
+        (edge.source === source && edge.target === target) ||
+        (edge.source === target && edge.target === source)
+      ) {
+        return;
+      }
+    }
+    const id = crypto.randomUUID();
+    edges.set(id, { id, source, target });
+  },
   selectEdge: (id) => set({ selectedEdgeId: id, selectedIds: new Set() }),
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
   setPendingEdge: (edge) => set({ pendingEdge: edge }),
-  replaceGraph: (nodes, edges) =>
+  replaceGraph: (nodes, edges) => {
+    requireDoc().transact(() => {
+      const yn = requireYNodes();
+      const ye = requireYEdges();
+      yn.clear();
+      ye.clear();
+      for (const n of nodes) yn.set(n.id, n);
+      for (const e of edges) ye.set(e.id, e);
+    });
     set({
-      nodes,
-      edges,
       selectedIds: new Set(),
       selectedEdgeId: null,
       selectionBox: null,
@@ -230,118 +269,169 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
       editingId: null,
       lastReplacedAt: Date.now(),
       nextNodeNumber: 1,
-    }),
+    });
+  },
+  hydrateIfEmpty: (nodes, edges) => {
+    const yn = requireYNodes();
+    const ye = requireYEdges();
+    if (yn.size > 0 || ye.size > 0) {
+      // 이미 다른 탭이 채워뒀거나 ws sync로 받음. 등장 애니메이션 마커만 갱신.
+      set({ lastReplacedAt: Date.now() });
+      return;
+    }
+    requireDoc().transact(() => {
+      for (const n of nodes) yn.set(n.id, n);
+      for (const e of edges) ye.set(e.id, e);
+    });
+    set({ lastReplacedAt: Date.now() });
+  },
   beginEdit: (id) =>
     set({ editingId: id, selectedIds: new Set([id]), selectedEdgeId: null }),
-  commitEdit: (label) =>
-    set((state) => {
-      if (!state.editingId) return state;
-      const trimmed = label.trim();
-      const editingId = state.editingId;
-      return {
-        nodes: trimmed
-          ? state.nodes.map((node) =>
-              node.id === editingId ? { ...node, label: trimmed } : node,
-            )
-          : state.nodes,
-        editingId: null,
-      };
-    }),
+  commitEdit: (label) => {
+    const editingId = get().editingId;
+    if (!editingId) return;
+    const trimmed = label.trim();
+    if (trimmed) {
+      const node = requireYNodes().get(editingId);
+      if (node) requireYNodes().set(editingId, { ...node, label: trimmed });
+    }
+    set({ editingId: null });
+  },
   cancelEdit: () => set({ editingId: null }),
   duplicateNode: (id) => {
-    let newId: string | null = null;
-    set((state) => {
-      const source = state.nodes.find((node) => node.id === id);
-      if (!source) return state;
-      newId = crypto.randomUUID();
-      const copy: CanvasNode = {
-        ...source,
-        id: newId,
-        // 살짝 옆으로 이동해서 원본과 겹치지 않게.
-        x: source.x + 24,
-        y: source.y + 24,
-        spawnedAt: Date.now(),
-        // 원본이 fade-out 중이었어도 복사본은 새로 등장하므로 removingAt 해제.
-        removingAt: undefined,
-      };
-      return {
-        nodes: [...state.nodes, copy],
-        selectedIds: new Set([newId]),
-        selectedEdgeId: null,
-      };
-    });
+    const source = requireYNodes().get(id);
+    if (!source) return null;
+    const newId = crypto.randomUUID();
+    const copy: CanvasNode = {
+      ...source,
+      id: newId,
+      // 살짝 옆으로 이동해서 원본과 겹치지 않게.
+      x: source.x + 24,
+      y: source.y + 24,
+      spawnedAt: Date.now(),
+      // 원본이 fade-out 중이었어도 복사본은 새로 등장하므로 removingAt 해제.
+      removingAt: undefined,
+    };
+    requireYNodes().set(newId, copy);
+    set({ selectedIds: new Set([newId]), selectedEdgeId: null });
     return newId;
   },
-  removeEdge: (id) =>
+  removeEdge: (id) => {
+    requireYEdges().delete(id);
     set((state) => ({
-      edges: state.edges.filter((edge) => edge.id !== id),
       selectedEdgeId: state.selectedEdgeId === id ? null : state.selectedEdgeId,
-    })),
+    }));
+  },
   setContextMenu: (menu) => set({ contextMenu: menu }),
-  setNodeType: (id, type) =>
-    set((state) => ({
-      nodes: state.nodes.map((node) => (node.id === id ? { ...node, type } : node)),
-    })),
-  toggleNodeChecked: (id) =>
-    set((state) => ({
-      nodes: state.nodes.map((node) =>
-        node.id === id && node.type === 'checkbox'
-          ? { ...node, checked: !(node.checked ?? false) }
-          : node,
-      ),
-    })),
-  setNodeColor: (ids, color) =>
-    set((state) => {
-      const idSet = new Set(ids);
-      // 'default'는 undefined로 정규화 — 누락 호환 경로(getNodeColor)와 동작 동일하게 통일.
-      const next = color === 'default' ? undefined : color;
-      return {
-        nodes: state.nodes.map((node) =>
-          idSet.has(node.id) ? { ...node, color: next } : node,
-        ),
-      };
-    }),
+  setNodeType: (id, type) => {
+    const node = requireYNodes().get(id);
+    if (!node) return;
+    requireYNodes().set(id, { ...node, type });
+  },
+  toggleNodeChecked: (id) => {
+    const node = requireYNodes().get(id);
+    if (!node || node.type !== 'checkbox') return;
+    requireYNodes().set(id, { ...node, checked: !(node.checked ?? false) });
+  },
+  setNodeColor: (ids, color) => {
+    const next = color === 'default' ? undefined : color;
+    requireDoc().transact(() => {
+      const map = requireYNodes();
+      for (const id of ids) {
+        const node = map.get(id);
+        if (node) map.set(id, { ...node, color: next });
+      }
+    });
+  },
   selectByColor: (color) =>
-    set((state) => ({
+    set({
       selectedIds: new Set(
-        state.nodes
+        snapshotNodes()
           .filter((node) => node.removingAt === undefined && (node.color ?? 'default') === color)
           .map((node) => node.id),
       ),
       selectedEdgeId: null,
-    })),
+    }),
   removeSelected: () => {
     const state = get();
     if (state.selectedEdgeId) {
       // 엣지는 transition 없이 즉시 제거.
-      set({
-        edges: state.edges.filter((edge) => edge.id !== state.selectedEdgeId),
-        selectedEdgeId: null,
-      });
+      requireYEdges().delete(state.selectedEdgeId);
+      set({ selectedEdgeId: null });
       return;
     }
     if (state.selectedIds.size === 0) return;
     const removingIds = new Set(state.selectedIds);
     const now = Date.now();
-    // 1단계: 선택 노드들에 removingAt 설정 + 선택 해제.
-    set({
-      nodes: state.nodes.map((node) =>
-        removingIds.has(node.id) ? { ...node, removingAt: now } : node,
-      ),
-      selectedIds: new Set(),
+    // 1단계: 선택 노드들에 removingAt 설정 + 로컬 선택 해제.
+    requireDoc().transact(() => {
+      const map = requireYNodes();
+      for (const id of removingIds) {
+        const node = map.get(id);
+        if (node) map.set(id, { ...node, removingAt: now });
+      }
     });
+    set({ selectedIds: new Set() });
     // 2단계: fade-out 끝나면 실제 제거 + 연결 엣지 정리.
     setTimeout(() => {
-      set((s) => {
-        const nodes = s.nodes.filter((node) => !removingIds.has(node.id));
-        return {
-          nodes,
-          edges: s.edges.filter(
-            (edge) => !removingIds.has(edge.source) && !removingIds.has(edge.target),
-          ),
-          nextNodeNumber: nodes.length === 0 ? 1 : s.nextNodeNumber,
-        };
+      requireDoc().transact(() => {
+        const yn = requireYNodes();
+        const ye = requireYEdges();
+        for (const id of removingIds) yn.delete(id);
+        ye.forEach((edge, edgeId) => {
+          if (removingIds.has(edge.source) || removingIds.has(edge.target)) ye.delete(edgeId);
+        });
       });
+      if (requireYNodes().size === 0) set({ nextNodeNumber: 1 });
     }, REMOVE_DURATION_MS);
   },
 }));
+
+/**
+ * nodeStore을 주어진 Y.Doc에 바인딩한다. canvasId가 바뀌거나 컴포넌트 unmount 시 unbind 필요.
+ * 같은 doc에 이미 bind되어 있으면 no-op.
+ */
+export function bindNodeStore(doc: Y.Doc): void {
+  if (boundDoc === doc) return;
+  if (boundDoc) unbindNodeStore();
+  boundDoc = doc;
+  yNodes = doc.getMap<CanvasNode>(Y_NODES);
+  yEdges = doc.getMap<CanvasEdge>(Y_EDGES);
+
+  // 초기 sync: bind 시점에 Y.Map에 이미 있는 값들로 store을 채운다.
+  useNodeStore.setState({
+    nodes: snapshotNodes(),
+    edges: snapshotEdges(),
+  });
+
+  nodesObserver = () => {
+    useNodeStore.setState({ nodes: snapshotNodes() });
+  };
+  edgesObserver = () => {
+    useNodeStore.setState({ edges: snapshotEdges() });
+  };
+  yNodes.observe(nodesObserver);
+  yEdges.observe(edgesObserver);
+}
+
+export function unbindNodeStore(): void {
+  if (yNodes && nodesObserver) yNodes.unobserve(nodesObserver);
+  if (yEdges && edgesObserver) yEdges.unobserve(edgesObserver);
+  yNodes = null;
+  yEdges = null;
+  boundDoc = null;
+  nodesObserver = null;
+  edgesObserver = null;
+  // store은 빈 상태로. 다음 bind에서 다시 채워진다.
+  useNodeStore.setState({
+    nodes: [],
+    edges: [],
+    selectedIds: new Set(),
+    selectedEdgeId: null,
+    hoveredNodeId: null,
+    pendingEdge: null,
+    editingId: null,
+    contextMenu: null,
+    nextNodeNumber: 1,
+  });
+}
