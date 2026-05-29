@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useNodeStore } from '@/stores/nodeStore';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { radialLayout } from '@/lib/canvas/radialLayout';
+import { useCanEdit } from '@/hooks/usePermissions';
 import type { Mindmap } from '@/lib/ai/gemini';
 
 /**
@@ -18,6 +19,7 @@ export function AiPromptBar() {
   const [composing, setComposing] = useState(false);
   const replaceGraph = useNodeStore((state) => state.replaceGraph);
   const resetViewport = useCanvasStore((state) => state.resetViewport);
+  const canEdit = useCanEdit();
 
   const submit = async () => {
     const trimmed = prompt.trim();
@@ -45,6 +47,9 @@ export function AiPromptBar() {
       setLoading(false);
     }
   };
+
+  // 읽기 전용 모드에서는 AI 생성 바 자체를 노출하지 않는다.
+  if (!canEdit) return null;
 
   return (
     <div className="fixed left-1/2 top-3 z-10 flex w-[min(640px,calc(100%-7rem))] -translate-x-1/2 flex-col gap-1">
