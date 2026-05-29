@@ -15,6 +15,7 @@ import { useYjs } from '@/hooks/useYjs';
 import { useAwareness } from '@/hooks/useAwareness';
 import { useRoleStore } from '@/stores/roleStore';
 import { useShareTokenStore } from '@/stores/shareTokenStore';
+import { useYjsStore } from '@/stores/yjsStore';
 import { canEdit, type CanvasRole } from '@/lib/supabase/permissions';
 import type { CanvasGraph } from '@/lib/supabase/canvases';
 
@@ -42,6 +43,7 @@ export function CanvasView({
   const hydrateIfEmpty = useNodeStore((s) => s.hydrateIfEmpty);
   const setRole = useRoleStore((s) => s.setRole);
   const setShareToken = useShareTokenStore((s) => s.setToken);
+  const indexeddbSynced = useYjsStore((s) => s.indexeddbSynced);
   // 자동저장은 편집 권한이 있을 때만(owner·edit). demo는 항상 비활성.
   const status = useAutosave({ canvasId, enabled: !demo && canEdit(role) });
   // Y.Doc · WebsocketProvider + nodeStore 바인딩 + 멀티커서 awareness.
@@ -61,12 +63,13 @@ export function CanvasView({
     return () => setShareToken(null);
   }, [shareToken, setShareToken]);
 
-  // 첫 mount 시점에 서버 데이터를 Y.Doc에 주입. 단, Y.Doc이 이미 채워진 상태(다른 탭 선진입)면 skip.
+  // IndexedDB hydrate가 끝난 뒤에 서버 데이터를 Y.Doc에 주입.
+  // hydrateIfEmpty가 Y.Doc 비어있을 때만 채우므로, IndexedDB가 먼저 채우면 자동 skip.
   useEffect(() => {
-    if (hydratedRef.current) return;
+    if (!indexeddbSynced || hydratedRef.current) return;
     hydratedRef.current = true;
     hydrateIfEmpty(initialGraph.nodes, initialGraph.edges);
-  }, [initialGraph, hydrateIfEmpty]);
+  }, [indexeddbSynced, initialGraph, hydrateIfEmpty]);
 
   return (
     <>
