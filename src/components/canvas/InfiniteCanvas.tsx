@@ -15,6 +15,8 @@ import { REMOVE_DURATION_MS, SPAWN_DURATION_MS, spawnProgress } from '@/lib/canv
 import { subscribeImageEvents } from '@/lib/canvas/imageCache';
 import { useFps } from '@/hooks/useFps';
 import { useYjsStore } from '@/stores/yjsStore';
+import { broadcastCursor } from '@/lib/yjs/awareness';
+import { screenToWorld } from '@/lib/canvas/transform';
 import { NodeLabelEditor } from './NodeLabelEditor';
 
 export function InfiniteCanvas() {
@@ -38,6 +40,28 @@ export function InfiniteCanvas() {
   // stopImmediatePropagation()으로 usePanZoom의 Pan 시작을 막을 수 있다.
   useNodeInteraction(canvasRef);
   usePanZoom(canvasRef);
+
+  // 멀티커서 broadcast — 30Hz throttle. 캔버스 밖으로 나가면 null로 보내 다른 탭에서 사라지게.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let last = 0;
+    const onMove = (e: PointerEvent) => {
+      const now = performance.now();
+      if (now - last < 33) return;
+      last = now;
+      const rect = canvas.getBoundingClientRect();
+      const vp = useCanvasStore.getState().viewport;
+      broadcastCursor(screenToWorld(vp, e.clientX - rect.left, e.clientY - rect.top));
+    };
+    const onLeave = () => broadcastCursor(null);
+    canvas.addEventListener('pointermove', onMove);
+    canvas.addEventListener('pointerleave', onLeave);
+    return () => {
+      canvas.removeEventListener('pointermove', onMove);
+      canvas.removeEventListener('pointerleave', onLeave);
+    };
+  }, []);
 
   // 항상 store의 최신 상태를 읽어 격자 → 연결선 → 노드 → 핸들 → 선택 박스 순으로 그린다.
   // devicePixelRatio를 반영해 물리 픽셀로 버퍼를 잡고, 그리기는 CSS 픽셀 좌표계로 한다.
