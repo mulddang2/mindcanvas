@@ -3,6 +3,8 @@
 import { useEffect, type RefObject } from 'react';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useNodeStore } from '@/stores/nodeStore';
+import { useRoleStore } from '@/stores/roleStore';
+import { canEdit } from '@/lib/supabase/permissions';
 import { screenToWorld } from '@/lib/canvas/transform';
 import {
   hitTestCheckbox,
@@ -84,13 +86,14 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       const world = toWorld(e.clientX, e.clientY);
       const store = useNodeStore.getState();
       const scale = useCanvasStore.getState().viewport.scale;
+      const canEditNow = canEdit(useRoleStore.getState().role);
       emptyPointerDown = false;
 
-      // 1. 호버 노드 핸들 위 → 연결선 드래그 시작.
+      // 1. 호버 노드 핸들 위 → 연결선 드래그 시작. read-only면 차단.
       const hoverNode = store.hoveredNodeId
         ? store.nodes.find((node) => node.id === store.hoveredNodeId)
         : null;
-      if (hoverNode && hitTestHandle(hoverNode, world, scale)) {
+      if (canEditNow && hoverNode && hitTestHandle(hoverNode, world, scale)) {
         e.stopImmediatePropagation();
         edgeDragSourceId = hoverNode.id;
         store.setPendingEdge({ sourceId: hoverNode.id, cursor: world });
@@ -104,20 +107,22 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
       if (hit) {
         e.stopImmediatePropagation();
 
-        // 2a. 체크박스 노드의 체크박스 박스 클릭 → 토글만. 드래그·선택 변경 없음.
+        // 2a. 체크박스 노드의 체크박스 박스 클릭 → 토글만. read-only면 차단.
         if (hitTestCheckbox(hit, world)) {
-          store.toggleNodeChecked(hit.id);
+          if (canEditNow) store.toggleNodeChecked(hit.id);
           return;
         }
 
         if (e.shiftKey) {
-          // Shift+클릭: 선택 토글만 하고 드래그는 시작하지 않는다.
+          // Shift+클릭: 선택 토글만 하고 드래그는 시작하지 않는다. read-only도 선택은 허용.
           store.toggleSelect(hit.id);
           return;
         }
 
         // 선택에 없는 노드를 잡으면 그 노드만, 이미 선택된 노드면 선택 전체를 드래그한다.
         if (!store.selectedIds.has(hit.id)) store.selectOnly(hit.id);
+        // read-only면 드래그 setup 생략 — 선택만 가능.
+        if (!canEditNow) return;
         const { nodes, selectedIds } = useNodeStore.getState();
         dragSnapshot = nodes
           .filter((n) => selectedIds.has(n.id))
@@ -275,6 +280,8 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
     };
 
     const onDoubleClick = (e: MouseEvent) => {
+      // read-only는 라벨 편집·노드 추가 모두 차단.
+      if (!canEdit(useRoleStore.getState().role)) return;
       const world = toWorld(e.clientX, e.clientY);
       const store = useNodeStore.getState();
       const hit = hitTestNode(store.nodes, world);
@@ -344,6 +351,8 @@ export function useNodeInteraction(ref: RefObject<HTMLCanvasElement | null>): vo
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (store.selectedIds.size === 0 && !store.selectedEdgeId) return;
+        // read-only는 Delete로 삭제 차단.
+        if (!canEdit(useRoleStore.getState().role)) return;
         e.preventDefault();
         store.removeSelected();
         return;

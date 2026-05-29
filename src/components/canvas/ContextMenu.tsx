@@ -22,6 +22,7 @@ import { useCanvasStore } from '@/stores/canvasStore';
 import { uploadCanvasImage } from '@/lib/supabase/storage';
 import { seedTestGraph } from '@/lib/canvas/seedTestGraph';
 import { NODE_COLORS, NODE_COLOR_ORDER } from '@/lib/canvas/nodeColors';
+import { useCanEdit } from '@/hooks/usePermissions';
 
 /** 캔버스 우클릭 시 떠오르는 컨텍스트 메뉴. 대상에 따라 항목이 달라진다. */
 export function ContextMenu() {
@@ -52,6 +53,7 @@ export function ContextMenu() {
       : null,
   );
   const selectedIds = useNodeStore((s) => s.selectedIds);
+  const canEdit = useCanEdit();
   // 우클릭 시점에 selectedIds에 포함돼 있으면 다중 적용, 아니면 target 단일 적용.
   const getApplyTargetIds = () => {
     if (menu?.target?.type !== 'node') return [];
@@ -128,48 +130,55 @@ export function ContextMenu() {
       >
         {menu.target?.type === 'node' && (
           <>
-            <Item
-              icon={Pencil}
-              label="이름 변경"
-              onClick={() => {
-                beginEdit(menu.target!.id);
-                close();
-              }}
-            />
-            <Item
-              icon={Copy}
-              label="복제"
-              onClick={() => {
-                duplicateNode(menu.target!.id);
-                close();
-              }}
-            />
-            {targetNodeType === 'checkbox' ? (
+            {canEdit && (
               <Item
-                icon={Type}
-                label="텍스트로 전환"
+                icon={Pencil}
+                label="이름 변경"
                 onClick={() => {
-                  setNodeType(menu.target!.id, 'text');
-                  close();
-                }}
-              />
-            ) : targetNodeType === 'image' ? null : (
-              <Item
-                icon={Square}
-                label="체크박스로 전환"
-                onClick={() => {
-                  setNodeType(menu.target!.id, 'checkbox');
+                  beginEdit(menu.target!.id);
                   close();
                 }}
               />
             )}
-            <SwatchRow
-              current={targetNodeColor ?? 'default'}
-              onPick={(color) => {
-                setNodeColor(getApplyTargetIds(), color);
-                close();
-              }}
-            />
+            {canEdit && (
+              <Item
+                icon={Copy}
+                label="복제"
+                onClick={() => {
+                  duplicateNode(menu.target!.id);
+                  close();
+                }}
+              />
+            )}
+            {canEdit &&
+              (targetNodeType === 'checkbox' ? (
+                <Item
+                  icon={Type}
+                  label="텍스트로 전환"
+                  onClick={() => {
+                    setNodeType(menu.target!.id, 'text');
+                    close();
+                  }}
+                />
+              ) : targetNodeType === 'image' ? null : (
+                <Item
+                  icon={Square}
+                  label="체크박스로 전환"
+                  onClick={() => {
+                    setNodeType(menu.target!.id, 'checkbox');
+                    close();
+                  }}
+                />
+              ))}
+            {canEdit && (
+              <SwatchRow
+                current={targetNodeColor ?? 'default'}
+                onPick={(color) => {
+                  setNodeColor(getApplyTargetIds(), color);
+                  close();
+                }}
+              />
+            )}
             <Item
               icon={MousePointerSquareDashed}
               label={`같은 색 모두 선택 (${NODE_COLORS[targetNodeColor ?? 'default'].label})`}
@@ -178,20 +187,22 @@ export function ContextMenu() {
                 close();
               }}
             />
-            <Item
-              icon={Trash2}
-              label="삭제"
-              shortcut="Delete"
-              danger
-              onClick={() => {
-                // 우클릭 시점에 단일 선택됐거나 다중 선택 유지된 그대로 selectedIds 전체 삭제.
-                removeSelected();
-                close();
-              }}
-            />
+            {canEdit && (
+              <Item
+                icon={Trash2}
+                label="삭제"
+                shortcut="Delete"
+                danger
+                onClick={() => {
+                  // 우클릭 시점에 단일 선택됐거나 다중 선택 유지된 그대로 selectedIds 전체 삭제.
+                  removeSelected();
+                  close();
+                }}
+              />
+            )}
           </>
         )}
-        {menu.target?.type === 'edge' && (
+        {menu.target?.type === 'edge' && canEdit && (
           <Item
             icon={Trash2}
             label="연결선 삭제"
@@ -205,23 +216,27 @@ export function ContextMenu() {
         )}
         {menu.target === null && (
           <>
-            <Item
-              icon={Plus}
-              label="여기에 노드 추가"
-              onClick={() => {
-                addNode(menu.worldX, menu.worldY);
-                close();
-              }}
-            />
-            <Item
-              icon={ImageIcon}
-              label="이미지 노드 추가"
-              onClick={() => {
-                pendingWorldRef.current = { x: menu.worldX, y: menu.worldY };
-                close();
-                fileInputRef.current?.click();
-              }}
-            />
+            {canEdit && (
+              <Item
+                icon={Plus}
+                label="여기에 노드 추가"
+                onClick={() => {
+                  addNode(menu.worldX, menu.worldY);
+                  close();
+                }}
+              />
+            )}
+            {canEdit && (
+              <Item
+                icon={ImageIcon}
+                label="이미지 노드 추가"
+                onClick={() => {
+                  pendingWorldRef.current = { x: menu.worldX, y: menu.worldY };
+                  close();
+                  fileInputRef.current?.click();
+                }}
+              />
+            )}
             <Item
               icon={CheckSquare}
               label="전체 선택"
@@ -239,7 +254,7 @@ export function ContextMenu() {
                 close();
               }}
             />
-            {process.env.NODE_ENV === 'development' && (
+            {canEdit && process.env.NODE_ENV === 'development' && (
               <Item
                 icon={Zap}
                 label="테스트: 1만 노드 생성"

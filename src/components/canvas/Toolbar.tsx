@@ -18,6 +18,7 @@ import { startForceLayout, type ForceLayoutHandle } from '@/lib/canvas/forceLayo
 import { treeLayout } from '@/lib/canvas/treeLayout';
 import { hierarchicalLayout } from '@/lib/canvas/hierarchicalLayout';
 import { timelineLayout } from '@/lib/canvas/timelineLayout';
+import { useCanEdit } from '@/hooks/usePermissions';
 
 /** 캔버스 우하단 floating 툴바. 자주 쓰는 액션을 마우스로 접근 가능하게 한다. */
 export function Toolbar() {
@@ -28,6 +29,7 @@ export function Toolbar() {
   const removeSelected = useNodeStore((s) => s.removeSelected);
   const selectAll = useNodeStore((s) => s.selectAll);
   const moveNodes = useNodeStore((s) => s.moveNodes);
+  const canEdit = useCanEdit();
   // 진행 중인 시뮬레이션 핸들. 다시 클릭하거나 언마운트 시 stop을 호출하기 위해 보관.
   const simRef = useRef<ForceLayoutHandle | null>(null);
 
@@ -36,6 +38,9 @@ export function Toolbar() {
   const canLayout = nodesCount >= 2;
 
   useEffect(() => () => simRef.current?.stop(), []);
+
+  // 읽기 전용 모드(view·null role)에서는 툴바 자체를 숨긴다.
+  if (!canEdit) return null;
 
   const onAdd = () => {
     // 화면 중심을 world로 변환해 새 노드를 그 위치에 추가.

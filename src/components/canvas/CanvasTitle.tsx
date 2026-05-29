@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Share2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { SaveStatus } from '@/hooks/useAutosave';
+import { ShareModal } from './ShareModal';
 
 interface Props {
   canvasId: string;
@@ -19,6 +20,7 @@ export function CanvasTitle({ canvasId, initialTitle, editable, status }: Props)
   const [title, setTitle] = useState(initialTitle);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(initialTitle);
+  const [shareOpen, setShareOpen] = useState(false);
   const composingRef = useRef(false);
 
   useEffect(() => {
@@ -86,6 +88,17 @@ export function CanvasTitle({ canvasId, initialTitle, editable, status }: Props)
         </button>
       )}
       {editable && <SaveBadge status={status} />}
+      {editable && (
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          title="공유"
+          className="rounded p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
+        >
+          <Share2 size={14} />
+        </button>
+      )}
+      {shareOpen && <ShareModal canvasId={canvasId} onClose={() => setShareOpen(false)} />}
     </div>
   );
 }
