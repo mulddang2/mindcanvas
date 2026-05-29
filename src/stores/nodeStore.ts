@@ -9,6 +9,7 @@ import type {
   WorldBounds,
 } from '@/types/canvas';
 import { REMOVE_DURATION_MS } from '@/lib/canvas/animation';
+import { broadcastEditing } from '@/lib/yjs/awareness';
 
 const DEFAULT_WIDTH = 160;
 const DEFAULT_HEIGHT = 64;
@@ -285,8 +286,10 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
     });
     set({ lastReplacedAt: Date.now() });
   },
-  beginEdit: (id) =>
-    set({ editingId: id, selectedIds: new Set([id]), selectedEdgeId: null }),
+  beginEdit: (id) => {
+    set({ editingId: id, selectedIds: new Set([id]), selectedEdgeId: null });
+    broadcastEditing(id);
+  },
   commitEdit: (label) => {
     const editingId = get().editingId;
     if (!editingId) return;
@@ -296,8 +299,12 @@ export const useNodeStore = create<NodeStore>((set, get) => ({
       if (node) requireYNodes().set(editingId, { ...node, label: trimmed });
     }
     set({ editingId: null });
+    broadcastEditing(null);
   },
-  cancelEdit: () => set({ editingId: null }),
+  cancelEdit: () => {
+    set({ editingId: null });
+    broadcastEditing(null);
+  },
   duplicateNode: (id) => {
     const source = requireYNodes().get(id);
     if (!source) return null;

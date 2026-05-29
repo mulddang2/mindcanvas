@@ -55,3 +55,9 @@ export function broadcastCursor(world: Point | null): void {
   if (!currentAwareness) return;
   currentAwareness.setLocalStateField('cursor', world);
 }
+
+/** 라벨 인라인 편집 진입/종료 시 호출. 다른 탭에서 해당 노드에 잠금 시각화. */
+export function broadcastEditing(nodeId: string | null): void {
+  if (!currentAwareness) return;
+  currentAwareness.setLocalStateField('editingId', nodeId);
+}

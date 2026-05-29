@@ -19,6 +19,14 @@ export const CHECKBOX_PADDING = 12;
 const CHECKBOX_BORDER = '#94a3b8';
 const CHECKBOX_FILL_CHECKED = '#2563eb';
 
+/** 다른 사용자가 라벨을 편집 중일 때 노드에 입힐 잠금 시각화 정보. */
+export interface NodeLock {
+  /** 잠금 테두리·배지 색 (편집자 카테고리 색). */
+  color: string;
+  /** 노드 위 작은 배지에 표시할 편집자 이름. */
+  name: string;
+}
+
 /** 노드 하나를 world→screen 변환해 둥근 사각형 + 라벨로 그린다. progress<1이면 등장 페이드+스케일. */
 export function drawNode(
   ctx: CanvasRenderingContext2D,
@@ -27,6 +35,7 @@ export function drawNode(
   selected: boolean,
   editing: boolean = false,
   progress: number = 1,
+  lock: NodeLock | null = null,
 ): void {
   const { scale } = viewport;
   const { x, y } = worldToScreen(viewport, node.x, node.y);
@@ -57,9 +66,16 @@ export function drawNode(
   ctx.roundRect(x, y, w, h, radius);
   ctx.fillStyle = palette.fill;
   ctx.fill();
-  ctx.lineWidth = selected ? 2 : 1;
-  ctx.strokeStyle = selected ? BORDER_SELECTED : palette.border;
+  ctx.lineWidth = lock || selected ? 2 : 1;
+  if (lock) {
+    // 다른 사용자가 편집 중 — 점선 + 잠금 색. selected 강조보다 우선.
+    ctx.setLineDash([6 * scale, 4 * scale]);
+    ctx.strokeStyle = lock.color;
+  } else {
+    ctx.strokeStyle = selected ? BORDER_SELECTED : palette.border;
+  }
   ctx.stroke();
+  if (lock) ctx.setLineDash([]);
 
   if (node.type === 'image') {
     const img = node.imageUrl ? getCachedImage(node.imageUrl) : null;
@@ -149,6 +165,30 @@ export function drawNode(
         ctx.textAlign = 'center';
         ctx.fillText(node.label, x + w / 2, y + h / 2, w * 0.85);
       }
+    }
+  }
+
+  // 잠금 배지 — 노드 상단 외부에 작은 칩으로 편집자 이름 표시.
+  if (lock && !animating) {
+    const badgeFont = Math.max(10, 11 * scale);
+    if (badgeFont >= MIN_LABEL_FONT_SIZE) {
+      ctx.font = `${badgeFont}px system-ui, sans-serif`;
+      const text = `${lock.name} 편집 중`;
+      const metrics = ctx.measureText(text);
+      const padX = 8;
+      const padY = 4;
+      const bw = metrics.width + padX * 2;
+      const bh = badgeFont + padY * 2;
+      const bx = x + (w - bw) / 2;
+      const by = y - bh - 6;
+      ctx.fillStyle = lock.color;
+      ctx.beginPath();
+      ctx.roundRect(bx, by, bw, bh, 4);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, bx + bw / 2, by + bh / 2);
     }
   }
 

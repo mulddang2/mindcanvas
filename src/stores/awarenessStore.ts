@@ -5,6 +5,8 @@ import type { User } from '@/lib/yjs/awareness';
 export interface PeerState {
   user: User;
   cursor: Point | null;
+  /** 이 peer가 현재 라벨 편집 중인 노드 id. 없으면 null. */
+  editingId: string | null;
 }
 
 interface AwarenessStore {

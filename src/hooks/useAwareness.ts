@@ -7,6 +7,11 @@ import type { Point } from '@/types/canvas';
 interface AwarenessRawState {
   user?: User;
   cursor?: Point | null;
+  editingId?: string | null;
+}
+
+function isAwarenessRawState(value: unknown): value is AwarenessRawState {
+  return typeof value === 'object' && value !== null;
 }
 
 /**
@@ -22,15 +27,20 @@ export function useAwareness(canvasId: string): void {
     const user = getOrCreateUser();
     awareness.setLocalStateField('user', user);
     awareness.setLocalStateField('cursor', null);
+    awareness.setLocalStateField('editingId', null);
     setCurrentAwareness(awareness);
 
     const refresh = () => {
       const next = new Map<number, PeerState>();
       awareness.getStates().forEach((raw, clientId) => {
         if (clientId === awareness.clientID) return;
-        const state = raw as AwarenessRawState;
-        if (!state.user) return;
-        next.set(clientId, { user: state.user, cursor: state.cursor ?? null });
+        if (!isAwarenessRawState(raw)) return;
+        if (!raw.user) return;
+        next.set(clientId, {
+          user: raw.user,
+          cursor: raw.cursor ?? null,
+          editingId: raw.editingId ?? null,
+        });
       });
       setPeers(next);
     };
