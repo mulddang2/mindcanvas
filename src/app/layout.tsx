@@ -31,7 +31,7 @@ export default function RootLayout({
         {/* FOUC 방지 — hydration 전에 localStorage의 사용자 선호값으로 <html>에 'dark' 클래스 적용. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var s=localStorage.getItem('mindcanvas:theme');if(!s)return;var p=JSON.parse(s);var v=p&&p.state&&p.state.preference;if(v==='dark')document.documentElement.classList.add('dark');}catch(_){}})();`,
+            __html: `(function(){try{var s=localStorage.getItem('mindcanvas:theme');var v=s?(JSON.parse(s).state||{}).preference:'system';var od=window.matchMedia('(prefers-color-scheme: dark)').matches;if(v==='dark'||(v==='system'&&od))document.documentElement.classList.add('dark');}catch(_){}})();`,
           }}
         />
       </head>

@@ -14,14 +14,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const root = document.documentElement;
-    if (preference === 'dark') {
-      root.classList.add('dark');
-    } else if (preference === 'light') {
-      root.classList.remove('dark');
-    } else {
-      // system — 클래스 제거하고 prefers-color-scheme에 위임
-      root.classList.remove('dark');
-    }
+    const apply = () => {
+      if (preference === 'dark') {
+        root.classList.add('dark');
+      } else if (preference === 'light') {
+        root.classList.remove('dark');
+      } else {
+        const osDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        root.classList.toggle('dark', osDark);
+      }
+    };
+    apply();
+    if (preference !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
   }, [preference]);
 
   return <>{children}</>;

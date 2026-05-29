@@ -31,24 +31,9 @@
   --radius-xl: 16px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #0f172a;
-    --color-surface: #1e293b;
-    --color-surface-2: #334155;
-    --color-border: #334155;
-
-    --color-fg: #f8fafc;
-    --color-fg-muted: #94a3b8;
-    --color-fg-subtle: #64748b;
-
-    --color-brand: #60a5fa;
-    --color-brand-hover: #3b82f6;
-    --color-brand-fg: #0f172a;
-  }
-}
-
-/* 명시적 .dark 클래스 — 후속 PR의 사용자 토글이 prefers-color-scheme를 override. */
+/* 다크 토큰은 항상 .dark 클래스가 결정한다. system 모드에서는 inline script · ThemeProvider가
+   prefers-color-scheme을 읽어 클래스를 토글 — @media 블록은 light 명시 시 OS dark를 따라가는
+   버그를 만들기 때문에 두지 않는다. */
 :root.dark {
   --color-bg: #0f172a;
   --color-surface: #1e293b;
