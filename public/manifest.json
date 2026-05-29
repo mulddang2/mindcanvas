@@ -1,0 +1,20 @@
+{
+  "name": "MindCanvas",
+  "short_name": "MindCanvas",
+  "description": "AI 협업 마인드맵 / 플로우 차트 SaaS",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#1f2933",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
