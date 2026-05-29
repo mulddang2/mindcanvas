@@ -8,9 +8,11 @@ import { Toolbar } from '@/components/canvas/Toolbar';
 import { ContextMenu } from '@/components/canvas/ContextMenu';
 import { CanvasTitle } from '@/components/canvas/CanvasTitle';
 import { Minimap } from '@/components/canvas/Minimap';
+import { Cursors } from '@/components/canvas/Cursors';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { useAutosave } from '@/hooks/useAutosave';
 import { useYjs } from '@/hooks/useYjs';
+import { useAwareness } from '@/hooks/useAwareness';
 import type { CanvasGraph } from '@/lib/supabase/canvases';
 
 interface Props {
@@ -25,8 +27,9 @@ interface Props {
 export function CanvasView({ canvasId, title, initialGraph, demo = false }: Props) {
   const hydrateIfEmpty = useNodeStore((s) => s.hydrateIfEmpty);
   const status = useAutosave({ canvasId, enabled: !demo });
-  // Y.Doc · WebsocketProvider + nodeStore 바인딩.
+  // Y.Doc · WebsocketProvider + nodeStore 바인딩 + 멀티커서 awareness.
   useYjs(canvasId);
+  useAwareness(canvasId);
   const hydratedRef = useRef(false);
 
   // 첫 mount 시점에 서버 데이터를 Y.Doc에 주입. 단, Y.Doc이 이미 채워진 상태(다른 탭 선진입)면 skip.
@@ -49,6 +52,7 @@ export function CanvasView({ canvasId, title, initialGraph, demo = false }: Prop
         status={status}
       />
       <Minimap />
+      <Cursors />
       <UserMenu />
     </>
   );
