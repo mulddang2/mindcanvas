@@ -29,6 +29,8 @@ interface Props {
   role?: CanvasRole;
   /** 공유 라우트 토큰. shareTokenStore에 set돼 createClient가 헤더로 주입한다. */
   shareToken?: string;
+  /** iframe 임베드 모드 — toolbar·AI·타이틀·사용자 메뉴 숨김(캔버스·미니맵·멀티커서만). */
+  embed?: boolean;
 }
 
 /** 캔버스 페이지의 클라이언트 진입점. 초기 그래프를 store에 hydrate하고 자동 저장 hook을 건다. */
@@ -39,6 +41,7 @@ export function CanvasView({
   demo = false,
   role = 'owner',
   shareToken,
+  embed = false,
 }: Props) {
   const hydrateIfEmpty = useNodeStore((s) => s.hydrateIfEmpty);
   const setRole = useRoleStore((s) => s.setRole);
@@ -74,18 +77,20 @@ export function CanvasView({
   return (
     <>
       <InfiniteCanvas />
-      <AiPromptBar />
-      <Toolbar />
+      {!embed && <AiPromptBar />}
+      {!embed && <Toolbar />}
       <ContextMenu />
-      <CanvasTitle
-        canvasId={canvasId}
-        initialTitle={title}
-        editable={!demo && role === 'owner'}
-        status={status}
-      />
+      {!embed && (
+        <CanvasTitle
+          canvasId={canvasId}
+          initialTitle={title}
+          editable={!demo && role === 'owner'}
+          status={status}
+        />
+      )}
       <Minimap />
       <Cursors />
-      <UserMenu />
+      {!embed && <UserMenu />}
     </>
   );
 }
