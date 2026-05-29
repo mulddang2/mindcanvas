@@ -10,6 +10,7 @@ import { CanvasTitle } from '@/components/canvas/CanvasTitle';
 import { Minimap } from '@/components/canvas/Minimap';
 import { UserMenu } from '@/components/auth/UserMenu';
 import { useAutosave } from '@/hooks/useAutosave';
+import { useYjs } from '@/hooks/useYjs';
 import type { CanvasGraph } from '@/lib/supabase/canvases';
 
 interface Props {
@@ -24,6 +25,8 @@ interface Props {
 export function CanvasView({ canvasId, title, initialGraph, demo = false }: Props) {
   const replaceGraph = useNodeStore((s) => s.replaceGraph);
   const status = useAutosave({ canvasId, enabled: !demo });
+  // Y.Doc · WebsocketProvider 라이프사이클. 후속 PR에서 노드/엣지 store과 동기화 예정.
+  useYjs(canvasId);
   const hydratedRef = useRef(false);
 
   // 첫 mount 시점에 서버에서 받은 그래프를 store에 주입. 이후엔 hydrate 안 함.
