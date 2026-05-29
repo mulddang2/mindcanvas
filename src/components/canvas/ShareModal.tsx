@@ -124,26 +124,20 @@ export function ShareModal({ canvasId, onClose }: Props) {
               공유 링크가 없습니다. 권한을 선택하고 링크를 만드세요.
             </p>
             <div className="mb-4 flex gap-2">
-              {(['view', 'edit'] as const).map((r) => {
-                // 'edit' 공유는 후속 PR. UI는 노출하되 비활성으로 표시.
-                const disabled = r === 'edit';
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => !disabled && setRole(r)}
-                    disabled={disabled}
-                    title={disabled ? '편집 공유는 후속 작업' : undefined}
-                    className={`flex-1 rounded-md border px-3 py-2 text-sm transition-colors ${
-                      role === r
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-                    } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
-                  >
-                    {r === 'view' ? '읽기' : '편집'}
-                  </button>
-                );
-              })}
+              {(['view', 'edit'] as const).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRole(r)}
+                  className={`flex-1 rounded-md border px-3 py-2 text-sm transition-colors ${
+                    role === r
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+                  }`}
+                >
+                  {r === 'view' ? '읽기' : '편집'}
+                </button>
+              ))}
             </div>
             <button
               type="button"

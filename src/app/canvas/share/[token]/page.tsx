@@ -22,13 +22,14 @@ export default async function SharedCanvasPage({ params }: Props) {
 
   if (error || !data) notFound();
 
-  // share_role이 'edit'인 토큰은 본 PR 미지원 — 일단 모두 view-only로 처리.
+  // share_role을 그대로 적용. 'edit'면 클라이언트가 token 헤더를 자동 주입해 RLS UPDATE 통과.
   return (
     <CanvasView
       canvasId={data.id}
       title={data.title}
       initialGraph={data.data as CanvasGraph}
-      role="view"
+      role={data.share_role ?? 'view'}
+      shareToken={token}
     />
   );
 }
