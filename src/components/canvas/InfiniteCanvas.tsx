@@ -15,8 +15,11 @@ import { REMOVE_DURATION_MS, SPAWN_DURATION_MS, spawnProgress } from '@/lib/canv
 import { subscribeImageEvents } from '@/lib/canvas/imageCache';
 import { useFps } from '@/hooks/useFps';
 import { useYjsStore } from '@/stores/yjsStore';
+import { useAwarenessStore } from '@/stores/awarenessStore';
 import { broadcastCursor } from '@/lib/yjs/awareness';
+import { NODE_COLORS } from '@/lib/canvas/nodeColors';
 import { screenToWorld } from '@/lib/canvas/transform';
+import type { NodeLock } from '@/lib/canvas/drawNode';
 import { NodeLabelEditor } from './NodeLabelEditor';
 
 export function InfiniteCanvas() {
@@ -35,6 +38,8 @@ export function InfiniteCanvas() {
   const [visibleCount, setVisibleCount] = useState(0);
   const fps = useFps();
   const wsStatus = useYjsStore((s) => s.status);
+  // 다른 사용자가 라벨 편집 중인 노드 표시(잠금 테두리·배지)에 사용. peers 변경 시 재렌더 트리거.
+  const peers = useAwarenessStore((s) => s.peers);
 
   // 순서 중요: useNodeInteraction이 먼저 등록돼야 노드 위 pointerdown에서
   // stopImmediatePropagation()으로 usePanZoom의 Pan 시작을 막을 수 있다.
@@ -87,6 +92,17 @@ export function InfiniteCanvas() {
     const state = useNodeStore.getState();
     const nodeById = new Map(state.nodes.map((node) => [node.id, node]));
 
+    // 다른 사용자가 편집 중인 노드 → 잠금 시각화. 본인 editingId는 input 오버레이라 잠금 표시 X.
+    const locksByNodeId = new Map<string, NodeLock>();
+    for (const peer of useAwarenessStore.getState().peers.values()) {
+      if (peer.editingId) {
+        locksByNodeId.set(peer.editingId, {
+          color: NODE_COLORS[peer.user.color].border,
+          name: peer.user.name,
+        });
+      }
+    }
+
     const animProgress = spawnProgress(Date.now(), state.lastReplacedAt);
     const bounds = getVisibleBounds(currentViewport, width, height);
 
@@ -120,6 +136,7 @@ export function InfiniteCanvas() {
         state.selectedIds.has(node.id),
         node.id === state.editingId,
         animProgress,
+        locksByNodeId.get(node.id) ?? null,
       );
       visible += 1;
     }
@@ -145,6 +162,7 @@ export function InfiniteCanvas() {
     hoveredNodeId,
     pendingEdge,
     editingId,
+    peers,
     render,
   ]);
 
