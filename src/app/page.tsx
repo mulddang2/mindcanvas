@@ -5,6 +5,10 @@ import { useTranslations } from 'next-intl';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { LanguageToggle } from '@/components/i18n/LanguageToggle';
 
+// next-intl이 클라이언트 store 기반이라 SSR/SSG 시 ENVIRONMENT_FALLBACK으로 prerender 실패.
+// 랜딩은 정적 prerender가 큰 이득이 아니므로 dynamic으로 처리.
+export const dynamic = 'force-dynamic';
+
 export default function Home() {
   const t = useTranslations('landing');
   return (
