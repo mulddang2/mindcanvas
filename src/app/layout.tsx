@@ -35,6 +35,12 @@ export default function RootLayout({
             __html: `(function(){try{var s=localStorage.getItem('mindcanvas:theme');var v=s?(JSON.parse(s).state||{}).preference:'system';var od=window.matchMedia('(prefers-color-scheme: dark)').matches;if(v==='dark'||(v==='system'&&od))document.documentElement.classList.add('dark');}catch(_){}})();`,
           }}
         />
+        {/* hydration 전에 사용자 locale로 <html lang> 설정 — 접근성·스크린리더 발음 정확도. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem('mindcanvas:locale');var v=s?(JSON.parse(s).state||{}).locale:null;if(v&&['ko','en','ja'].indexOf(v)>=0)document.documentElement.lang=v;}catch(_){}})();`,
+          }}
+        />
       </head>
       <body>
         <ThemeProvider>
