@@ -33,12 +33,14 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  // /canvas/share/[token]·/embed/[token] 라우트는 anon 접근 허용. 보호 경로에서 제외.
+  // /canvas/demo·/canvas/share/[token]·/embed/[token] 라우트는 anon 접근 허용. 보호 경로에서 제외.
   const isSharedCanvas = pathname.startsWith('/canvas/share/');
   const isEmbed = pathname.startsWith('/embed/');
+  const isDemo = pathname === '/canvas/demo';
   const isProtected =
     !isSharedCanvas &&
     !isEmbed &&
+    !isDemo &&
     PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
   if (isProtected && !user) {
