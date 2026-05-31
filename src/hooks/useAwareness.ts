@@ -44,10 +44,22 @@ export function useAwareness(canvasId: string): void {
       });
       setPeers(next);
     };
+
+    // peer가 많을 때 change가 receive마다 발생하면 setPeers→Cursors 리렌더가 폭주한다.
+    // RAF로 한 프레임 내 change들을 1회 refresh로 묶어 수신을 60Hz로 제한, 1만 노드와의 메인스레드 경합을 줄인다.
+    let rafId: number | null = null;
+    const scheduleRefresh = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        refresh();
+      });
+    };
     refresh();
-    awareness.on('change', refresh);
+    awareness.on('change', scheduleRefresh);
     return () => {
-      awareness.off('change', refresh);
+      awareness.off('change', scheduleRefresh);
+      if (rafId !== null) cancelAnimationFrame(rafId);
       // 본인 state를 비워 다른 탭의 peers에서 즉시 사라지게 한다.
       awareness.setLocalState(null);
       setCurrentAwareness(null);
