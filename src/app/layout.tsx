@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
+import { ThemeProvider } from '@/components/theme/ThemeProvider';
 
 export const metadata: Metadata = {
   title: 'MindCanvas',
@@ -26,8 +27,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
+      <head>
+        {/* FOUC 방지 — hydration 전에 localStorage의 사용자 선호값으로 <html>에 'dark' 클래스 적용. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var s=localStorage.getItem('mindcanvas:theme');var v=s?(JSON.parse(s).state||{}).preference:'system';var od=window.matchMedia('(prefers-color-scheme: dark)').matches;if(v==='dark'||(v==='system'&&od))document.documentElement.classList.add('dark');}catch(_){}})();`,
+          }}
+        />
+      </head>
       <body>
-        {children}
+        <ThemeProvider>{children}</ThemeProvider>
         {/* Service Worker 등록 — production에서만 활성, dev는 HMR과 충돌 방지를 위해 skip. */}
         {process.env.NODE_ENV === 'production' && (
           <Script id="sw-register" strategy="afterInteractive">
