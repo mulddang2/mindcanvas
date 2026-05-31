@@ -52,6 +52,33 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
+  e2e:
+    runs-on: ubuntu-latest
+    # dev 서버를 dummy supabase env로 띄우고 Playwright 시나리오를 실행한다.
+    # 데모/랜딩 시나리오는 supabase 호출이 없거나 middleware의 anon 우회를 지나서 동작한다.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://dummy.supabase.co' }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'dummy-publishable-key' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
   lighthouse:
     runs-on: ubuntu-latest
     # production build 후 next start로 띄워 랜딩 페이지의 성능·접근성·SEO를 측정한다.
