@@ -1,7 +1,15 @@
 import { notFound } from 'next/navigation';
+import type { Viewport } from 'next';
 import { createShareClient } from '@/lib/supabase/shareServer';
 import { CanvasView } from '../../[id]/CanvasView';
 import type { CanvasGraph } from '@/lib/supabase/canvases';
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 interface Props {
   params: Promise<{ token: string }>;

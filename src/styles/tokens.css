@@ -14,9 +14,9 @@
   --color-fg-muted: #334155;
   --color-fg-subtle: #64748b;
 
-  /* Brand — 주요 액션·강조 */
-  --color-brand: #3b82f6;
-  --color-brand-hover: #2563eb;
+  /* Brand — 주요 액션·강조. 흰 텍스트와 WCAG AA(4.5:1) 통과하도록 blue-600. */
+  --color-brand: #2563eb;
+  --color-brand-hover: #1d4ed8;
   --color-brand-fg: #ffffff;
 
   /* Status — 알림·검증·경고 */

@@ -16,9 +16,6 @@ export const viewport: Viewport = {
   themeColor: '#1f2933',
   width: 'device-width',
   initialScale: 1,
-  // 캔버스 핀치 줌과 충돌하지 않게 페이지 자체 줌은 잠금.
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({
