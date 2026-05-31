@@ -4,6 +4,44 @@ AI 협업 마인드맵 / 플로우 차트 SaaS.
 
 ---
 
+## 로컬 실행
+
+### 1. 환경변수
+
+`.env.local.example`을 복사해 `.env.local`을 만들고 키를 채운다.
+
+```bash
+cp .env.local.example .env.local
+```
+
+| 키 | 용도 |
+|---|---|
+| `GEMINI_API_KEY` | AI 마인드맵 생성 |
+| `NEXT_PUBLIC_SUPABASE_URL` · `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | 인증·저장 |
+| `NEXT_PUBLIC_YJS_WS_URL` | 협업 WebSocket (로컬 기본 `ws://localhost:1234`) |
+
+### 2-a. Node 직접 실행
+
+```bash
+pnpm install
+pnpm dev   # next dev + yjs WebSocket 동시 기동
+```
+
+→ `http://localhost:3000`
+
+### 2-b. Docker Compose
+
+```bash
+docker compose up --build
+```
+
+next 프로덕션 서버(`3000`) + yjs WebSocket(`1234`)를 같은 이미지로 띄운다.
+`.env.local`이 있으면 자동으로 읽고, 없으면 dummy 값으로 빌드만 통과한다.
+
+→ `http://localhost:3000`
+
+---
+
 ## 커밋 컨벤션
 
 [Conventional Commits](https://www.conventionalcommits.org/) 기반. `type` · `scope`는 영어, `subject`는 한국어 명사형.
