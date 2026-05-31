@@ -1,0 +1,25 @@
+# 로컬 시연용. next 프로덕션 서버 + yjs WebSocket을 같은 이미지로 띄운다.
+# .env.local에 SUPABASE·GEMINI 키를 채워야 인증·AI 기능이 동작한다. 없어도 빌드는 통과.
+services:
+  next:
+    image: mindcanvas:local
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-https://dummy.supabase.co}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-dummy-publishable-key}
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env.local
+        required: false
+    environment:
+      NEXT_PUBLIC_YJS_WS_URL: ws://localhost:1234
+    depends_on:
+      - yjs
+
+  yjs:
+    image: mindcanvas:local
+    command: node scripts/yjs-server.mjs
+    ports:
+      - "1234:1234"

@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.github
+.husky
+.lighthouseci
+playwright-report
+test-results
+e2e
+docs
+.vscode
+.idea
+.claude
+*.log
+.env*
+!.env.local.example
