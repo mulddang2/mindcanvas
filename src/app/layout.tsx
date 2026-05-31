@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import Script from 'next/script';
 import './globals.css';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
+import { I18nProvider } from '@/components/i18n/I18nProvider';
 
 export const metadata: Metadata = {
   title: 'MindCanvas',
@@ -36,7 +37,9 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <I18nProvider>{children}</I18nProvider>
+        </ThemeProvider>
         {/* Service Worker 등록 — production에서만 활성, dev는 HMR과 충돌 방지를 위해 skip. */}
         {process.env.NODE_ENV === 'production' && (
           <Script id="sw-register" strategy="afterInteractive">
