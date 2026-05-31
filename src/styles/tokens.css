@@ -9,10 +9,10 @@
   --color-surface-2: #f1f5f9;
   --color-border: #e2e8f0;
 
-  /* Foreground — 본문·보조 텍스트 */
+  /* Foreground — 본문·보조 텍스트. fg-muted는 bg-surface 위에서도 WCAG AA(4.5:1) 통과하도록 slate-700. */
   --color-fg: #0f172a;
-  --color-fg-muted: #64748b;
-  --color-fg-subtle: #94a3b8;
+  --color-fg-muted: #334155;
+  --color-fg-subtle: #64748b;
 
   /* Brand — 주요 액션·강조 */
   --color-brand: #3b82f6;

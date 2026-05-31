@@ -31,8 +31,8 @@ export function LanguageToggle() {
             onClick={() => setLocale(value)}
             className={
               active
-                ? 'bg-brand text-brand-fg rounded px-2 py-1'
-                : 'text-fg-muted hover:text-fg rounded px-2 py-1'
+                ? 'bg-brand text-brand-fg rounded px-3 py-1.5 min-h-7'
+                : 'text-fg-muted hover:text-fg rounded px-3 py-1.5 min-h-7'
             }
           >
             {t(value)}
