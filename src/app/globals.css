@@ -32,3 +32,16 @@ body {
   color: var(--color-fg);
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
+
+/* prefers-reduced-motion 시 transition·animation·smooth scroll을 즉시 멈춤(전정기관 민감 사용자 보호).
+   캔버스의 의미 있는 모션(노드 드래그·pan/zoom)은 사용자가 직접 일으키는 동작이라 그대로 유지. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
