@@ -1,0 +1,13 @@
+{
+  "landing": {
+    "title": "MindCanvas",
+    "description": "AI 共同編集マインドマップ／フローチャート SaaS。無限キャンバスでパン・ズームを試してみてください。",
+    "cta": "キャンバスを開く"
+  },
+  "language": {
+    "label": "言語",
+    "ko": "한국어",
+    "en": "English",
+    "ja": "日本語"
+  }
+}
