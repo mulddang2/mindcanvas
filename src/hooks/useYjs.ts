@@ -14,7 +14,10 @@ export function useYjs(canvasId: string): void {
     const { doc, provider, persistence } = acquire(canvasId);
     bindNodeStore(doc);
     // 초기 상태: 핸드셰이크 전. provider.wsconnected 플래그가 즉시 true일 수도 있어 한 번 동기화.
-    setStatus(provider.wsconnected ? 'connected' : 'connecting');
+    // 협업 비활성(connect:false)이면 connecting이 아니라 disconnected로 정직하게 표시.
+    setStatus(
+      provider.wsconnected ? 'connected' : provider.shouldConnect ? 'connecting' : 'disconnected',
+    );
     const onStatus = (event: { status: YjsStatus }) => setStatus(event.status);
     provider.on('status', onStatus);
 

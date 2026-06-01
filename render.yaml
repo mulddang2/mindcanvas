@@ -1,0 +1,15 @@
+# Render Blueprint — Y.js 협업 WebSocket 서버(무료 web service).
+# Next 앱은 Vercel에 두고, 이 서버만 Render에 올려 NEXT_PUBLIC_YJS_WS_URL=wss://<host>로 연결한다.
+# 무료 플랜은 15분 미사용 시 sleep → 첫 접속에 콜드스타트(~50s)가 있다.
+services:
+  - type: web
+    name: mindcanvas-yjs
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: node scripts/yjs-server.mjs
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
