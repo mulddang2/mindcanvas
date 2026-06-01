@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { useCanvasStore } from '@/stores/canvasStore';
 import { useNodeStore } from '@/stores/nodeStore';
 import { getNodeColor } from '@/lib/canvas/nodeColors';
@@ -17,13 +17,17 @@ const BORDER = '#e2e8f0';
 
 /**
  * 우상단에 떠 있는 미니맵. 모든 노드를 축소해서 보여주고 현재 viewport를 사각형으로 overlay.
- * 노드·엣지 변경 시, viewport 변경 시 다시 그린다. 클릭/드래그 인터랙션은 추후.
+ * 노드·엣지 변경 시, viewport 변경 시 다시 그린다.
+ * 미니맵을 클릭·드래그하면 해당 지점이 화면 중앙에 오도록 메인 viewport를 이동한다.
  */
 export function Minimap() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const nodes = useNodeStore((s) => s.nodes);
   const selectedIds = useNodeStore((s) => s.selectedIds);
   const viewport = useCanvasStore((s) => s.viewport);
+  const centerOn = useCanvasStore((s) => s.centerOn);
+  // 그릴 때 계산한 world→minimap 변환. 클릭 핸들러가 역변환(minimap→world)에 쓴다.
+  const transformRef = useRef<{ scale: number; offsetX: number; offsetY: number } | null>(null);
   // 창 크기 변경 시 viewport 사각형이 stale되지 않도록 별도 state로 추적.
   const [windowSize, setWindowSize] = useState({ w: 0, h: 0 });
 
@@ -76,6 +80,7 @@ export function Minimap() {
     // 비율 유지 후 빈 공간을 중앙 정렬.
     const offsetX = PADDING + (innerW - worldW * scale) / 2 - minX * scale;
     const offsetY = PADDING + (innerH - worldH * scale) / 2 - minY * scale;
+    transformRef.current = { scale, offsetX, offsetY };
 
     // 노드 그리기 (선택된 노드는 파란색 강조, 그 외는 카테고리 색 / default는 회색 fallback).
     for (const n of nodes) {
@@ -105,6 +110,33 @@ export function Minimap() {
     );
   }, [nodes, selectedIds, viewport, windowSize]);
 
+  // minimap-local 좌표(px)를 world로 역변환해 그 지점을 화면 중앙으로 이동.
+  const navigateTo = (localX: number, localY: number) => {
+    const t = transformRef.current;
+    if (!t || windowSize.w === 0) return;
+    const worldX = (localX - t.offsetX) / t.scale;
+    const worldY = (localY - t.offsetY) / t.scale;
+    centerOn(worldX, worldY, windowSize.w, windowSize.h);
+  };
+
+  const toLocal = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  };
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const { x, y } = toLocal(e);
+    navigateTo(x, y);
+  };
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    // 드래그 중에만(버튼 눌림) 따라온다. capture 상태에서도 buttons로 판별.
+    if (e.buttons === 0) return;
+    const { x, y } = toLocal(e);
+    navigateTo(x, y);
+  };
+
   return (
     <div
       className="fixed right-3 top-14 z-10 rounded-md bg-white p-1 shadow-md ring-1 ring-black/10"
@@ -113,7 +145,9 @@ export function Minimap() {
       <canvas
         ref={canvasRef}
         style={{ width: MINIMAP_W, height: MINIMAP_H }}
-        className="block"
+        className="block cursor-pointer"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
       />
     </div>
   );

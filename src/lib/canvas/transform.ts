@@ -22,6 +22,24 @@ export function worldToScreen(viewport: Viewport, wx: number, wy: number): Point
 }
 
 /**
+ * world 좌표 (wx, wy)가 화면 중앙에 오도록 viewport 원점을 옮긴다. scale은 유지.
+ * 화면 절반(px)을 scale로 나눠 world 기준 절반 크기를 빼면 원점이 나온다.
+ */
+export function centerViewport(
+  viewport: Viewport,
+  wx: number,
+  wy: number,
+  screenW: number,
+  screenH: number,
+): Viewport {
+  return {
+    ...viewport,
+    x: wx - screenW / viewport.scale / 2,
+    y: wy - screenH / viewport.scale / 2,
+  };
+}
+
+/**
  * 마우스 위치(screen 좌표)를 고정점으로 zoom. 커서 아래 world 지점이
  * zoom 후에도 같은 화면 위치에 남도록 viewport 원점을 역산한다.
  */
