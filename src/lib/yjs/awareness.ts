@@ -30,8 +30,8 @@ function makeName(id: string): string {
 }
 
 /**
- * 데모 모드용 익명 사용자. localStorage에 한 번 발급된 id를 영구 보관.
- * DB 모드에서 Supabase 사용자 정보로 덮어쓸 hook은 후속 작업.
+ * 익명 사용자. localStorage에 한 번 발급된 id를 영구 보관.
+ * DB 모드에서 로그인 사용자가 있으면 useAwareness가 makeAuthUser로 덮어쓴다.
  */
 export function getOrCreateUser(): User {
   let id = localStorage.getItem(USER_STORAGE_KEY);
@@ -40,6 +40,20 @@ export function getOrCreateUser(): User {
     localStorage.setItem(USER_STORAGE_KEY, id);
   }
   return { id, name: makeName(id), color: pickColor(id) };
+}
+
+/** 로그인 사용자 정보로 User 생성. 색은 user id 해시로 안정적으로 고정. */
+export function makeAuthUser(id: string, name: string): User {
+  return { id, name, color: pickColor(id) };
+}
+
+/** user_metadata에서 표시 이름을 고른다: full_name → name → email → fallback. */
+export function resolveDisplayName(
+  meta: Record<string, unknown>,
+  email: string | null | undefined,
+  fallback: string,
+): string {
+  return (meta.full_name as string) ?? (meta.name as string) ?? email ?? fallback;
 }
 
 // InfiniteCanvas의 pointer move 핸들러가 직접 awareness를 잡지 않도록 모듈 레벨 reference.

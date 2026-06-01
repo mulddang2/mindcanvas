@@ -1,6 +1,13 @@
 import { useEffect } from 'react';
 import { acquire, release } from '@/lib/yjs/provider';
-import { getOrCreateUser, setCurrentAwareness, type User } from '@/lib/yjs/awareness';
+import {
+  getOrCreateUser,
+  makeAuthUser,
+  resolveDisplayName,
+  setCurrentAwareness,
+  type User,
+} from '@/lib/yjs/awareness';
+import { createClient } from '@/lib/supabase/client';
 import { useAwarenessStore, type PeerState } from '@/stores/awarenessStore';
 import type { Point } from '@/types/canvas';
 
@@ -30,6 +37,20 @@ export function useAwareness(canvasId: string): void {
     awareness.setLocalStateField('editingId', null);
     setCurrentAwareness(awareness);
 
+    // DB 모드(비-demo)에서 로그인 사용자가 있으면 익명 라벨을 실제 이름으로 덮어쓴다.
+    // 익명 user를 먼저 set해 두므로 auth 조회가 끝나기 전에도 커서는 보인다.
+    let cancelled = false;
+    if (canvasId !== 'demo') {
+      createClient()
+        .auth.getUser()
+        .then(({ data }) => {
+          if (cancelled || !data.user) return;
+          const meta = data.user.user_metadata as Record<string, unknown>;
+          const name = resolveDisplayName(meta, data.user.email, user.name);
+          awareness.setLocalStateField('user', makeAuthUser(data.user.id, name));
+        });
+    }
+
     const refresh = () => {
       const next = new Map<number, PeerState>();
       awareness.getStates().forEach((raw, clientId) => {
@@ -58,6 +79,7 @@ export function useAwareness(canvasId: string): void {
     refresh();
     awareness.on('change', scheduleRefresh);
     return () => {
+      cancelled = true;
       awareness.off('change', scheduleRefresh);
       if (rafId !== null) cancelAnimationFrame(rafId);
       // 본인 state를 비워 다른 탭의 peers에서 즉시 사라지게 한다.
