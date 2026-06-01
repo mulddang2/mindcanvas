@@ -1,6 +1,6 @@
 /* MindCanvas 디자인 토큰 — semantic 색상·radius 변수.
    globals.css에서 import하고 Tailwind @theme로 유틸리티에 노출.
-   다크 토큰은 prefers-color-scheme + .dark 클래스 둘 다 대응(후속 PR에서 토글). */
+   다크 토큰은 prefers-color-scheme + .dark 클래스 둘 다 대응. 토글은 ThemeToggle. */
 
 :root {
   /* Surface — 페이지·카드·구분선 */
