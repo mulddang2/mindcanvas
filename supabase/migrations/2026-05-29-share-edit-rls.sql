@@ -1,7 +1,9 @@
 -- 이슈 #21 권한 관리 — share_role='edit' 토큰 보유자가 data 필드를 UPDATE할 수 있는 RLS.
 -- 적용은 Supabase Studio SQL Editor에서 수동.
 
-create policy if not exists "share_token edit data"
+-- CREATE POLICY는 IF NOT EXISTS를 지원하지 않아 DROP 후 생성으로 멱등 보장.
+drop policy if exists "share_token edit data" on public.canvases;
+create policy "share_token edit data"
   on public.canvases
   for update
   using (

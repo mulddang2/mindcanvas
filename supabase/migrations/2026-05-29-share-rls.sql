@@ -3,7 +3,9 @@
 -- edit role 공유는 후속 PR. UPDATE/DELETE는 기존 owner_id 정책만 유지.
 -- 적용은 Supabase Studio SQL Editor에서 수동.
 
-create policy if not exists "share_token select"
+-- CREATE POLICY는 IF NOT EXISTS를 지원하지 않아 DROP 후 생성으로 멱등 보장.
+drop policy if exists "share_token select" on public.canvases;
+create policy "share_token select"
   on public.canvases
   for select
   using (
