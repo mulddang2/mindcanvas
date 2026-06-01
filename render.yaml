@@ -7,8 +7,7 @@ services:
     runtime: node
     plan: free
     region: singapore
-    # ws는 devDependency라 --prod=false로 devDeps까지 설치해야 한다.
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
     startCommand: node scripts/yjs-server.mjs
     healthCheckPath: /
     envVars:
