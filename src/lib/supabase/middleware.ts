@@ -50,8 +50,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // 이미 로그인한 사용자가 /login에 접근하면 대시보드로 보낸다.
-  if (pathname === '/login' && user) {
+  // 이미 로그인한 사용자가 /login·랜딩에 접근하면 대시보드로 보낸다 — 데모 CTA로 새는 걸 막는다.
+  if ((pathname === '/login' || pathname === '/') && user) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     url.search = '';
