@@ -57,9 +57,12 @@ export function ShareModal({ canvasId, onClose }: Props) {
     setBusy(false);
   };
 
-  const shareUrl = token
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/canvas/share/${token}`
-    : '';
+  // 소유자가 git 브랜치·프리뷰 URL에서 접속해도 공유 링크는 공개 도메인으로 고정.
+  // 그 URL들은 Vercel 인증벽이 켜져 있어 협업자가 막힌다.
+  const baseUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (typeof window !== 'undefined' ? window.location.origin : '');
+  const shareUrl = token ? `${baseUrl}/canvas/share/${token}` : '';
 
   const onCopy = async () => {
     if (!shareUrl) return;
