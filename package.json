@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "AI 협업 마인드맵 / 플로우 차트 SaaS",
+  "packageManager": "pnpm@10.11.0",
   "scripts": {
     "dev": "concurrently -n next,yjs -c green,cyan \"pnpm dev:next\" \"pnpm dev:yjs\"",
     "dev:next": "next dev",
