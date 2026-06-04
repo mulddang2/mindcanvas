@@ -30,6 +30,8 @@ export function NodeLabelEditor() {
 
   useEffect(() => {
     if (!editingId || !node) return;
+    // 편집 진입 시 input 값을 현재 라벨로 초기화 — 의도된 파생 state 리셋.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setValue(node.label);
     const input = inputRef.current;
     if (!input) return;
