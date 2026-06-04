@@ -24,6 +24,8 @@ export function CanvasTitle({ canvasId, initialTitle, editable, status }: Props)
   const composingRef = useRef(false);
 
   useEffect(() => {
+    // initialTitle(서버 값·라우팅)이 바뀌면 편집 state를 동기화 — 의도된 파생 state 리셋.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTitle(initialTitle);
     setDraft(initialTitle);
   }, [initialTitle]);

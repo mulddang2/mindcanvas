@@ -151,6 +151,8 @@ export function InfiniteCanvas() {
   }, []);
 
   useEffect(() => {
+    // render()가 캔버스를 그리고 보이는 노드 수를 반환 → HUD 표시용 state 갱신(외부 시스템 동기화).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setVisibleCount(render());
   }, [
     viewport,
