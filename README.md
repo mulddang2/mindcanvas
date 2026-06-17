@@ -96,14 +96,14 @@
   `nodes 보임/전체` HUD를 띄워 화면 밖 객체가 실제로 제외되는지 실시간 검증.
 - **결과** — 매 프레임 전체 그래프를 다시 그리던 pan/zoom·드래그 인터랙션 중에도
   **60fps 이상 유지**(측정 67fps), 인터랙션이 끝나면 모니터 상한(144Hz)으로 복귀해
-  누적 부담이 없음을 `useFps` HUD로 확인. 이슈 #19 목표 충족.
+  누적 부담이 없음을 `useFps` HUD로 확인. [이슈 #19](https://github.com/mulddang2/mindcanvas/issues/19) 목표 충족.
 
 ### 2. 실시간 멀티커서 — 원격 이벤트 RAF 쓰로틀링
 
 - **문제** — 원격 커서 awareness 갱신 이벤트가 빈번해 수신 측 리렌더가 메인 스레드를
   압박했다.
 - **해결** — 대량의 커서 갱신을 `requestAnimationFrame`으로 묶어 **프레임당 1회**로
-  제한(#79). 이동량이 사람 눈에 손실 없이 갱신 빈도만 프레임 예산에 맞췄다.
+  제한([#79](https://github.com/mulddang2/mindcanvas/pull/79)). 이동량이 사람 눈에 손실 없이 갱신 빈도만 프레임 예산에 맞췄다.
 - **결과** — 다중 커서 환경에서도 렌더 주기가 프레임당 1회로 안착.
 
 ### 3. 무료 티어 배포 — Vercel + Render 분리와 pnpm 핀
@@ -112,8 +112,8 @@
   무료 플랜 빌드가 corepack의 pnpm 버전 드리프트로 깨졌다.
 - **해결** — **Next 앱은 Vercel, Y.js 릴레이만 Render**로 분리하고 릴레이 빌드는
   `--ignore-scripts`로 불필요한 의존성 빌드·husky를 건너뛰도록 했다. 빌드 버전 드리프트는
-  `package.json`의 `packageManager: pnpm@10.11.0` 핀으로 고정(#87). 무료 티어 7일
-  무활동 정지는 cron keep-alive로 방지(#90).
+  `package.json`의 `packageManager: pnpm@10.11.0` 핀으로 고정([#87](https://github.com/mulddang2/mindcanvas/pull/87)). 무료 티어 7일
+  무활동 정지는 cron keep-alive로 방지([#90](https://github.com/mulddang2/mindcanvas/pull/90)).
 - **결과** — 무료 인프라만으로 SSR·실시간 협업·DB를 모두 운영.
 
 ---
